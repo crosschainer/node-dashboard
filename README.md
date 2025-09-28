@@ -14,7 +14,6 @@ A modern, real-time dashboard for monitoring CometBFT 0.38.12 node health and st
 - **Version Information**: CometBFT version, ABCI app version, and build details
 - **Network Information**: Network ID, peer count, validator status, and connectivity
 - **Health & Alerts**: Active issue detection, system status, and error monitoring
-- **WebSocket Status**: Monitor WebSocket connectivity and availability
 
 ### User Experience
 - **Configurable Node URL**: Easy switching between different CometBFT nodes
@@ -211,7 +210,6 @@ Centralized API service for all CometBFT REST API interactions:
 - Block height and sync progress
 - Peer connection count
 - Network participation status
-- WebSocket connectivity
 - API response times
 
 ### Error Detection
