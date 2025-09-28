@@ -31,7 +31,6 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
   });
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const mountedRef = useRef(true);
 
   // Update node URL if provided
   useEffect(() => {
@@ -41,30 +40,24 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
   }, [nodeUrl]);
 
   const fetchData = useCallback(async () => {
-    if (!mountedRef.current) return;
-
     try {
       const newData = await cometbftService.getAllData();
-      if (mountedRef.current) {
-        setData(newData);
-      }
+      setData(newData);
     } catch (error) {
-      if (mountedRef.current) {
-        setData(prev => ({
-          ...prev,
-          loading: false,
-          error: error instanceof Error ? error.message : 'Failed to fetch data',
-          health: {
-            isOnline: false,
-            isSynced: false,
-            hasErrors: true,
-            errorMessages: [error instanceof Error ? error.message : 'Failed to fetch data'],
-            lastUpdated: new Date(),
-          }
-        }));
-      }
+      setData(prev => ({
+        ...prev,
+        loading: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch data',
+        health: {
+          isOnline: false,
+          isSynced: false,
+          hasErrors: true,
+          errorMessages: [error instanceof Error ? error.message : 'Failed to fetch data'],
+          lastUpdated: new Date(),
+        }
+      }));
     }
-  }, []);
+  }, [nodeUrl]);
 
   const startAutoRefresh = useCallback(() => {
     if (intervalRef.current) {
@@ -102,7 +95,6 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      mountedRef.current = false;
       stopAutoRefresh();
     };
   }, [stopAutoRefresh]);
