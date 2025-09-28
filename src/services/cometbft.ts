@@ -65,33 +65,7 @@ export class CometBFTService {
     }
   }
 
-  async checkWebSocketStatus(): Promise<boolean> {
-    try {
-      // Try to connect to WebSocket endpoint
-      const wsUrl = this.baseUrl.replace(/^https?/, 'wss').replace(/^http/, 'ws') + '/websocket';
-      const ws = new WebSocket(wsUrl);
-      
-      return new Promise((resolve) => {
-        const timeout = setTimeout(() => {
-          ws.close();
-          resolve(false);
-        }, 3000);
 
-        ws.onopen = () => {
-          clearTimeout(timeout);
-          ws.close();
-          resolve(true);
-        };
-
-        ws.onerror = () => {
-          clearTimeout(timeout);
-          resolve(false);
-        };
-      });
-    } catch {
-      return false;
-    }
-  }
 
   private analyzeNodeHealth(status: StatusResponse | null, netInfo: NetInfoResponse | null): NodeHealth {
     const health: NodeHealth = {

@@ -1,35 +1,13 @@
-import { useState, useEffect } from 'react';
 import { Card } from './Card';
 import { StatusIndicator } from './StatusIndicator';
 import { LoadingSpinner } from './LoadingSpinner';
 import { DashboardData } from '../types/cometbft';
-import { cometbftService } from '../services/cometbft';
 
 interface NetworkInfoCardProps {
   data: DashboardData;
 }
 
 export function NetworkInfoCard({ data }: NetworkInfoCardProps) {
-  const [websocketStatus, setWebsocketStatus] = useState<boolean | null>(null);
-  const [checkingWebsocket, setCheckingWebsocket] = useState(false);
-
-  useEffect(() => {
-    const checkWebsocket = async () => {
-      if (data.status && !checkingWebsocket) {
-        setCheckingWebsocket(true);
-        try {
-          const isEnabled = await cometbftService.checkWebSocketStatus();
-          setWebsocketStatus(isEnabled);
-        } catch {
-          setWebsocketStatus(false);
-        } finally {
-          setCheckingWebsocket(false);
-        }
-      }
-    };
-
-    checkWebsocket();
-  }, [data.status, checkingWebsocket]);
 
   if (data.loading) {
     return (
@@ -110,31 +88,7 @@ export function NetworkInfoCard({ data }: NetworkInfoCardProps) {
           )}
         </div>
 
-        {/* WebSocket Status */}
-        <div>
-          <h4 style={{ 
-            color: 'var(--text-accent)', 
-            fontSize: 'var(--text-base)',
-            fontWeight: 'var(--font-medium)',
-            marginBottom: 'var(--space-2)'
-          }}>
-            WebSocket Status
-          </h4>
-          {checkingWebsocket ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <LoadingSpinner size="sm" />
-              <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
-                Checking WebSocket...
-              </span>
-            </div>
-          ) : (
-            <StatusIndicator 
-              status={websocketStatus ? 'success' : 'error'}
-            >
-              WebSocket {websocketStatus ? 'Enabled' : 'Disabled/Unavailable'}
-            </StatusIndicator>
-          )}
-        </div>
+
 
         {/* Network Details */}
         {data.status && (

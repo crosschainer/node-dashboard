@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { LoadingSpinner } from './LoadingSpinner';
 import { cometbftService } from '../services/cometbft';
+import { RefreshIcon, CometBFTLogo } from './Icons';
 
 interface HeaderProps {
   isLoading: boolean;
@@ -52,11 +53,9 @@ export function Header({ isLoading, lastUpdated, onRefresh, onNodeUrlChange }: H
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 'var(--text-xl)',
-            fontWeight: 'var(--font-bold)',
             color: 'white'
           }}>
-            ⚡
+            <CometBFTLogo size={24} />
           </div>
           <div>
             <h1 style={{
@@ -208,7 +207,7 @@ export function Header({ isLoading, lastUpdated, onRefresh, onNodeUrlChange }: H
               </>
             ) : (
               <>
-                <span style={{ fontSize: 'var(--text-base)' }}>🔄</span>
+                <RefreshIcon size={16} />
                 Refresh
               </>
             )}

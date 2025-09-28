@@ -1,6 +1,6 @@
 
-
 import { ReactNode } from 'react';
+import { CheckIcon, XIcon, AlertTriangleIcon } from './Icons';
 
 interface StatusIndicatorProps {
   status: 'success' | 'error' | 'warning';
@@ -18,9 +18,22 @@ export function StatusIndicator({ status, children, pulse = false }: StatusIndic
   
   const pulseClass = pulse ? 'pulse' : '';
   
+  const getIcon = () => {
+    switch (status) {
+      case 'success':
+        return <CheckIcon size={14} />;
+      case 'error':
+        return <XIcon size={14} />;
+      case 'warning':
+        return <AlertTriangleIcon size={14} />;
+      default:
+        return null;
+    }
+  };
+  
   return (
     <div className={`${baseClasses} ${statusClasses[status]} ${pulseClass}`}>
-      <div className={`w-2 h-2 rounded-full bg-current ${pulse ? 'pulse' : ''}`} />
+      {getIcon()}
       {children}
     </div>
   );
