@@ -1,0 +1,30 @@
+{
+  "name": "cometbft-node-dashboard",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 12000",
+    "build": "tsc && vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 12000"
+  },
+  "keywords": [
+    "cometbft",
+    "dashboard",
+    "monitoring"
+  ],
+  "author": "",
+  "license": "ISC",
+  "description": "Modern dashboard for monitoring CometBFT node health",
+  "dependencies": {
+    "@types/react": "^19.1.15",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.4",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2"
+  }
+}

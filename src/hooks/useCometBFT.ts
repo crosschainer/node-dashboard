@@ -1,0 +1,119 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { DashboardData } from '../types/cometbft';
+import { cometbftService } from '../services/cometbft';
+
+interface UseCometBFTOptions {
+  refreshInterval?: number;
+  autoRefresh?: boolean;
+  nodeUrl?: string;
+}
+
+export function useCometBFT(options: UseCometBFTOptions = {}) {
+  const {
+    refreshInterval = 30000, // 30 seconds
+    autoRefresh = true,
+    nodeUrl
+  } = options;
+
+  const [data, setData] = useState<DashboardData>({
+    status: null,
+    netInfo: null,
+    abciInfo: null,
+    health: {
+      isOnline: false,
+      isSynced: false,
+      hasErrors: true,
+      errorMessages: ['Initializing...'],
+      lastUpdated: new Date(),
+    },
+    loading: true,
+    error: null,
+  });
+
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const mountedRef = useRef(true);
+
+  // Update node URL if provided
+  useEffect(() => {
+    if (nodeUrl) {
+      cometbftService.setBaseUrl(nodeUrl);
+    }
+  }, [nodeUrl]);
+
+  const fetchData = useCallback(async () => {
+    if (!mountedRef.current) return;
+
+    try {
+      const newData = await cometbftService.getAllData();
+      if (mountedRef.current) {
+        setData(newData);
+      }
+    } catch (error) {
+      if (mountedRef.current) {
+        setData(prev => ({
+          ...prev,
+          loading: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch data',
+          health: {
+            isOnline: false,
+            isSynced: false,
+            hasErrors: true,
+            errorMessages: [error instanceof Error ? error.message : 'Failed to fetch data'],
+            lastUpdated: new Date(),
+          }
+        }));
+      }
+    }
+  }, []);
+
+  const startAutoRefresh = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    
+    if (autoRefresh && refreshInterval > 0) {
+      intervalRef.current = setInterval(fetchData, refreshInterval);
+    }
+  }, [fetchData, autoRefresh, refreshInterval]);
+
+  const stopAutoRefresh = useCallback(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+
+  const refresh = useCallback(async () => {
+    setData(prev => ({ ...prev, loading: true, error: null }));
+    await fetchData();
+  }, [fetchData]);
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Auto refresh setup
+  useEffect(() => {
+    startAutoRefresh();
+    return stopAutoRefresh;
+  }, [startAutoRefresh, stopAutoRefresh]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      stopAutoRefresh();
+    };
+  }, [stopAutoRefresh]);
+
+  return {
+    data,
+    refresh,
+    startAutoRefresh,
+    stopAutoRefresh,
+    isLoading: data.loading,
+    error: data.error,
+    health: data.health,
+  };
+}
