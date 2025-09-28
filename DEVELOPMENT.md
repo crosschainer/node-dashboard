@@ -1,6 +1,6 @@
 # Development Guide for AI Assistants
 
-This document provides comprehensive guidance for AI assistants working on the CometBFT Node Dashboard project.
+This document provides comprehensive guidance for AI assistants working on the Xian Node Dashboard project.
 
 ## 🎯 Project Overview
 

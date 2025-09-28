@@ -27,10 +27,10 @@ export function NodeStatusCard({ data }: NodeStatusCardProps) {
           Node Offline
         </StatusIndicator>
         {data.error && (
-          <p style={{ 
-            marginTop: 'var(--space-3)', 
-            color: 'var(--text-error)', 
-            fontSize: 'var(--text-sm)' 
+          <p style={{
+            marginTop: 'var(--space-3)',
+            color: 'var(--text-error)',
+            fontSize: 'var(--text-sm)'
           }}>
             {data.error}
           </p>
@@ -45,33 +45,36 @@ export function NodeStatusCard({ data }: NodeStatusCardProps) {
   return (
     <Card title="Node Status" glow={data.health.isOnline}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        {/* Online Status */}
-        <div>
-          <StatusIndicator status={data.health.isOnline ? 'success' : 'error'} pulse={data.health.isOnline}>
-            {data.health.isOnline ? 'Online' : 'Offline'}
-          </StatusIndicator>
-        </div>
+        <div style={{ display: 'flex', flexDirection: 'row', gap: 'var(--space-4)' }}>
+          {/* Online Status */}
+          <div>
+            <StatusIndicator status={data.health.isOnline ? 'success' : 'error'}>
+              {data.health.isOnline ? 'Online' : 'Offline'}
+            </StatusIndicator>
+          </div>
 
-        {/* Sync Status */}
-        <div>
-          <StatusIndicator status={isSynced ? 'success' : 'warning'} pulse={!isSynced}>
-            {isSynced ? 'Synced' : 'Syncing'}
-          </StatusIndicator>
-          {!isSynced && (
-            <p style={{ 
-              marginTop: 'var(--space-2)', 
-              color: 'var(--text-warning)', 
-              fontSize: 'var(--text-sm)' 
-            }}>
-              Node is catching up with the network
-            </p>
-          )}
+          {/* Sync Status */}
+          <div>
+            <StatusIndicator status={isSynced ? 'success' : 'warning'} pulse={!isSynced}>
+              {isSynced ? 'Synced' : 'Syncing'}
+            </StatusIndicator>
+            {!isSynced && (
+              <p style={{
+                marginTop: 'var(--space-2)',
+                color: 'var(--text-warning)',
+                fontSize: 'var(--text-sm)'
+              }}>
+                Node is catching up with the network
+              </p>
+            )}
+
+          </div>
         </div>
 
         {/* Node Info */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: '1fr 1fr', 
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
           gap: 'var(--space-3)',
           fontSize: 'var(--text-sm)',
           color: 'var(--text-secondary)'

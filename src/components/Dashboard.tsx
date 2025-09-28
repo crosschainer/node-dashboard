@@ -67,7 +67,7 @@ export function Dashboard() {
         background: 'var(--bg-secondary)'
       }}>
         <p>
-          CometBFT Node Dashboard - Real-time monitoring for CometBFT 0.38.12 nodes
+          Xian Node Dashboard - Real-time monitoring for CometBFT 0.38.12 nodes
         </p>
         <p style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)' }}>
           Auto-refresh every 30 seconds • Built with React & TypeScript

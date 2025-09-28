@@ -46,16 +46,15 @@ export function Header({ isLoading, lastUpdated, onRefresh, onNodeUrlChange }: H
         {/* Logo and Title */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
           <div style={{
-            width: '40px',
-            height: '40px',
-            background: 'var(--primary-gradient)',
+            width: '46px',
+            height: '46px',
             borderRadius: 'var(--radius-lg)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: 'white'
           }}>
-            <CometBFTLogo size={24} />
+            <CometBFTLogo size={46} />
           </div>
           <div>
             <h1 style={{
@@ -67,7 +66,7 @@ export function Header({ isLoading, lastUpdated, onRefresh, onNodeUrlChange }: H
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text'
             }}>
-              CometBFT Dashboard
+              Dashboard
             </h1>
             <p style={{
               fontSize: 'var(--text-sm)',

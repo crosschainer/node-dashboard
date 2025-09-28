@@ -40,7 +40,7 @@ export function NetworkInfoCard({ data }: NetworkInfoCardProps) {
             status={isListening ? 'success' : 'error'}
             pulse={isListening}
           >
-            {isListening ? 'Listening for connections' : 'Not listening'}
+            {isListening ? 'Listening for connections..' : 'Not listening'}
           </StatusIndicator>
         </div>
 

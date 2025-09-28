@@ -1,4 +1,4 @@
-# CometBFT Node Dashboard
+# Xian Node Dashboard
 
 A modern, real-time dashboard for monitoring CometBFT 0.38.12 node health and status. Built with React, TypeScript, and Vite for optimal performance and developer experience.
 
