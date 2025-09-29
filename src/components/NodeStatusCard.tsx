@@ -39,13 +39,15 @@ export function NodeStatusCard({ data }: NodeStatusCardProps) {
     );
   }
 
-  const { sync_info, node_info } = data.status.result;
+  const { sync_info, node_info, validator_info } = data.status.result;
   const isSynced = !sync_info.catching_up;
+  const votingPower = Number(validator_info.voting_power);
+  const isValidator = Number.isFinite(votingPower) && votingPower > 0;
 
   return (
     <Card title="Node Status" glow={data.health.isOnline}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        <div style={{ display: 'flex', flexDirection: 'row', gap: 'var(--space-4)' }}>
+        <div style={{ display: 'flex', flexDirection: 'row', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
           {/* Online Status */}
           <div>
             <StatusIndicator status={data.health.isOnline ? 'success' : 'error'}>
@@ -68,6 +70,22 @@ export function NodeStatusCard({ data }: NodeStatusCardProps) {
               </p>
             )}
 
+          </div>
+
+          {/* Validator Status */}
+          <div>
+            <StatusIndicator status={isValidator ? 'success' : 'warning'}>
+              {isValidator ? 'Validator Active' : 'Not in Validator Set'}
+            </StatusIndicator>
+            {!isValidator && (
+              <p style={{
+                marginTop: 'var(--space-2)',
+                color: 'var(--text-warning)',
+                fontSize: 'var(--text-sm)'
+              }}>
+                Node has no validator voting power
+              </p>
+            )}
           </div>
         </div>
 
@@ -98,6 +116,16 @@ export function NodeStatusCard({ data }: NodeStatusCardProps) {
             <strong style={{ color: 'var(--text-primary)' }}>Last Updated:</strong>
             <br />
             {new Date(sync_info.latest_block_time).toLocaleTimeString()}
+          </div>
+          <div>
+            <strong style={{ color: 'var(--text-primary)' }}>Validator Address:</strong>
+            <br />
+            {validator_info.address}
+          </div>
+          <div>
+            <strong style={{ color: 'var(--text-primary)' }}>Voting Power:</strong>
+            <br />
+            {Number.isFinite(votingPower) ? votingPower.toLocaleString() : '0'}
           </div>
         </div>
       </div>
