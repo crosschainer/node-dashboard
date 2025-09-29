@@ -102,6 +102,7 @@ export function useGovernance({
       const proposalsResponse = await cometbftService.getGovernanceProposalsRange(startId, endId);
       const proposals = proposalsResponse.sort((a, b) => b.id - a.id);
 
+
       if (requestIdRef.current !== currentRequestId) {
         return;
       }

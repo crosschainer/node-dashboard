@@ -48,6 +48,7 @@ export function GovernanceCard({ isValidator, governance }: GovernanceCardProps)
     }
   };
 
+
   const showingFrom = proposals.length > 0
     ? proposals[0].id
     : 0;
@@ -74,6 +75,7 @@ export function GovernanceCard({ isValidator, governance }: GovernanceCardProps)
             Total proposals: {totalProposals ?? '—'}
           </p>
           {totalProposals && totalProposals > 0 && proposals.length > 0 && (
+
             <p style={{
               margin: 0,
               fontSize: 'var(--text-xs)',
