@@ -148,6 +148,9 @@ const renderVoteProgress = (
 ) => {
   const bitArray = type === 'prevotes' ? voteSet?.prevotes_bit_array : voteSet?.precommits_bit_array;
   const progress = parseBitArray(bitArray);
+  const progressRatio = progress
+    ? Math.max(0, Math.min(1, Number(progress.ratio ?? 0)))
+    : 0;
   const ratioText = progress?.ratio !== null && progress?.ratio !== undefined
     ? formatPercentage(progress.ratio)
     : '—';
@@ -155,6 +158,10 @@ const renderVoteProgress = (
   const thresholdRemaining = progress && !progress.reached
     ? Math.max(progress.threshold - progress.counted, 0)
     : 0;
+
+  const thresholdPercent = progress && progress.total > 0
+    ? Math.max(0, Math.min(100, (progress.threshold / progress.total) * 100))
+    : 66.6;
 
   return (
     <div
@@ -186,7 +193,7 @@ const renderVoteProgress = (
       >
         <div
           style={{
-            width: `${Math.max(0, Math.min(100, (progress?.ratio ?? 0) * 100))}%`,
+            width: `${progressRatio * 100}%`,
             height: '100%',
             background: label.includes('Precommit') ? 'var(--color-accent)' : 'var(--color-primary)',
             transition: 'width 0.3s ease',
@@ -195,7 +202,7 @@ const renderVoteProgress = (
         <div
           style={{
             position: 'absolute',
-            left: `${progress ? (progress.threshold / progress.total) * 100 : 66.6}%`,
+            left: `${thresholdPercent}%`,
             top: 0,
             bottom: 0,
             width: '2px',
@@ -282,15 +289,10 @@ export function ConsensusStateCard({ data }: ConsensusStateCardProps) {
     );
   }
 
-  const { round_state, peers } = data.consensusState.result;
-  const validators = round_state.validators?.validators?.length ?? null;
-  const peerObservers = peers?.length ?? 0;
+  const { round_state } = data.consensusState.result;
 
   const roundHeight = parseNumeric(round_state.height);
   const roundNumber = parseNumeric(round_state.round);
-  const lockedRound = parseNumeric(round_state.locked_round);
-  const validRound = parseNumeric(round_state.valid_round);
-  const commitRound = parseNumeric(round_state.commit_round);
   const stepInfo = getStepInfo(round_state.step);
   const proposerAddress = round_state.validators?.proposer?.address ?? null;
 
@@ -310,28 +312,8 @@ export function ConsensusStateCard({ data }: ConsensusStateCardProps) {
       value: roundHeight !== null ? roundHeight.toLocaleString() : 'Unknown',
     },
     {
-      label: 'Round',
-      value: roundNumber !== null ? `#${roundNumber}` : 'Unknown',
-    },
-    {
-      label: 'Validators',
-      value: validators !== null ? validators.toLocaleString() : 'Unknown',
-    },
-    {
-      label: 'Peers',
-      value: peerObservers.toLocaleString(),
-    },
-    {
-      label: 'Locked Round',
-      value: lockedRound !== null ? `#${lockedRound}` : 'No active lock',
-    },
-    {
-      label: 'Valid Round',
-      value: validRound !== null ? `#${validRound}` : 'No valid proposal yet',
-    },
-    {
-      label: 'Commit Round',
-      value: commitRound !== null ? `#${commitRound}` : 'Not committed',
+      label: 'Step',
+      value: stepInfo.label,
     },
     {
       label: 'Proposer',
@@ -350,9 +332,6 @@ export function ConsensusStateCard({ data }: ConsensusStateCardProps) {
             {consensusHealth.healthy ? 'Consensus Healthy' : 'Consensus Issues Detected'}
           </StatusIndicator>
           <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-            <div>
-              Step: <strong style={{ color: 'var(--text-primary)' }}>{stepInfo.label}</strong>
-            </div>
             <div
               style={{
                 fontSize: 'var(--text-xs)',
@@ -366,6 +345,7 @@ export function ConsensusStateCard({ data }: ConsensusStateCardProps) {
               <span>In step {formatDuration(roundDurationSeconds)}</span>
               <span>Updated {formatRelative(lastUpdatedSeconds)}</span>
             </div>
+            <span style={{ fontSize: 'var(--text-xs)', opacity: 0.7 }}>{stepInfo.description}</span>
           </div>
         </div>
 
