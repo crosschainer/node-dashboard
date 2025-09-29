@@ -453,8 +453,6 @@ export function ConsensusStateCard({ data }: ConsensusStateCardProps) {
                 color: 'var(--text-muted)',
               }}
             >
-              <span>In step {formatDuration(roundDurationSeconds)}</span>
-              <span>Updated {formatRelative(lastUpdatedSeconds)}</span>
             </div>
           </div>
         </div>
