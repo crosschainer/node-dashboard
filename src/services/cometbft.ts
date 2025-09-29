@@ -1,4 +1,4 @@
-import { StatusResponse, NetInfoResponse, ABCIInfoResponse, NodeHealth, DashboardData } from '../types/cometbft';
+import { StatusResponse, NetInfoResponse, ABCIInfoResponse, UnconfirmedTxsResponse, NodeHealth, DashboardData } from '../types/cometbft';
 
 export class CometBFTService {
   private baseUrl: string;
@@ -65,6 +65,18 @@ export class CometBFTService {
     }
   }
 
+  async getUnconfirmedTxs(limit: number = 100): Promise<UnconfirmedTxsResponse> {
+    try {
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/unconfirmed_txs?limit=${limit}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      throw new Error(`Failed to fetch mempool data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
 
 
   private analyzeNodeHealth(status: StatusResponse | null, netInfo: NetInfoResponse | null): NodeHealth {
@@ -120,6 +132,7 @@ export class CometBFTService {
       status: null,
       netInfo: null,
       abciInfo: null,
+      mempool: null,
       health: {
         isOnline: false,
         isSynced: false,
@@ -133,10 +146,11 @@ export class CometBFTService {
 
     try {
       // Fetch all data in parallel
-      const [status, netInfo, abciInfo] = await Promise.allSettled([
+      const [status, netInfo, abciInfo, mempool] = await Promise.allSettled([
         this.getStatus(),
         this.getNetInfo(),
         this.getABCIInfo(),
+        this.getUnconfirmedTxs(),
       ]);
 
       // Handle status
@@ -160,8 +174,16 @@ export class CometBFTService {
         console.warn('ABCI info error:', abciInfo.reason);
       }
 
+      // Handle mempool info
+      if (mempool.status === 'fulfilled') {
+        data.mempool = mempool.value;
+      } else {
+        console.warn('Mempool info error:', mempool.reason);
+      }
+
       // Analyze health
       data.health = this.analyzeNodeHealth(data.status, data.netInfo);
+      data.health.lastUpdated = new Date();
       data.loading = false;
 
     } catch (error) {

@@ -10,7 +10,7 @@ interface UseCometBFTOptions {
 
 export function useCometBFT(options: UseCometBFTOptions = {}) {
   const {
-    refreshInterval = 30000, // 30 seconds
+    refreshInterval = 5000, // 5 seconds
     autoRefresh = true,
     nodeUrl
   } = options;
@@ -19,6 +19,7 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
     status: null,
     netInfo: null,
     abciInfo: null,
+    mempool: null,
     health: {
       isOnline: false,
       isSynced: false,
