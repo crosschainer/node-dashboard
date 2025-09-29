@@ -35,52 +35,86 @@ export function Dashboard() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
+    <div className="dashboard-container">
       <Header
         isLoading={isLoading}
         lastUpdated={data.health.lastUpdated}
         onRefresh={refresh}
         onNodeUrlChange={handleNodeUrlChange}
       />
-      
-      <main
-        style={{
-          maxWidth: '1400px',
-          margin: '0 auto',
-          padding: 'var(--space-6)',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-          gap: 'var(--space-6)',
-          alignItems: 'start',
-          gridAutoFlow: 'dense'
-        }}
-      >
-        <div style={{ gridColumn: '1 / -1' }}>
-          <NodeStatusCard data={data} />
-        </div>
-        <HealthAlertsCard data={data} />
-        <ConsensusStateCard data={data} />
-        <NetworkInfoCard data={data} />
-        <MempoolCard data={data} />
-        <VersionInfoCard data={data} />
-        <div style={{ gridColumn: '1 / -1' }}>
-          <GovernanceCard isValidator={isValidator} governance={governance} />
-        </div>
+
+      <main className="dashboard-content">
+        <section className="dashboard-section">
+          <div className="dashboard-section__header">
+            <h2 className="dashboard-section__title">Node overview</h2>
+            <p className="dashboard-section__subtitle">
+              Current validator identity, peers and uptime
+            </p>
+          </div>
+          <div className="dashboard-grid dashboard-grid--single">
+            <div className="dashboard-item">
+              <NodeStatusCard data={data} />
+            </div>
+          </div>
+        </section>
+
+        <section className="dashboard-section">
+          <div className="dashboard-section__header">
+            <h2 className="dashboard-section__title">Health &amp; consensus</h2>
+            <p className="dashboard-section__subtitle">
+              Live heartbeat, block production and participation metrics
+            </p>
+          </div>
+          <div className="dashboard-grid">
+            <div className="dashboard-item">
+              <HealthAlertsCard data={data} />
+            </div>
+            <div className="dashboard-item">
+              <ConsensusStateCard data={data} />
+            </div>
+          </div>
+        </section>
+
+        <section className="dashboard-section">
+          <div className="dashboard-section__header">
+            <h2 className="dashboard-section__title">Network activity</h2>
+            <p className="dashboard-section__subtitle">
+              Peer connectivity, throughput and mempool insights
+            </p>
+          </div>
+          <div className="dashboard-grid">
+            <div className="dashboard-item">
+              <NetworkInfoCard data={data} />
+            </div>
+            <div className="dashboard-item">
+              <MempoolCard data={data} />
+            </div>
+          </div>
+        </section>
+
+        <section className="dashboard-section">
+          <div className="dashboard-section__header">
+            <h2 className="dashboard-section__title">Version &amp; governance</h2>
+            <p className="dashboard-section__subtitle">
+              Release alignment and validator decision tracking
+            </p>
+          </div>
+          <div className="dashboard-grid">
+            <div className="dashboard-item">
+              <VersionInfoCard data={data} />
+            </div>
+            <div className="dashboard-item dashboard-item--wide">
+              <GovernanceCard isValidator={isValidator} governance={governance} />
+            </div>
+          </div>
+        </section>
       </main>
 
-      {/* Footer */}
-      <footer style={{
-        borderTop: '1px solid var(--border-primary)',
-        padding: 'var(--space-4)',
-        textAlign: 'center',
-        color: 'var(--text-muted)',
-        fontSize: 'var(--text-sm)',
-        background: 'var(--bg-secondary)'
-      }}>
+      <footer className="dashboard-footer">
         <p>
           Xian Node Dashboard - Real-time monitoring for CometBFT 0.38.12 nodes
         </p>
-        <p style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)' }}>
+        <p className="dashboard-footer__meta">
           Auto-refresh every 5 seconds • Built with React & TypeScript
         </p>
       </footer>
