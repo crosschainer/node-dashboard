@@ -337,8 +337,6 @@ export function ConsensusStateCard({ data }: ConsensusStateCardProps) {
   const prevoteProgress = getVoteProgress(currentVoteSet, 'prevotes');
   const precommitProgress = getVoteProgress(currentVoteSet, 'precommits');
 
-  const roundStart = new Date(round_state.start_time);
-  const now = new Date();
 
   const lastCommitProgress = combineVoteProgress(
     round_state.last_commit?.votes_bit_array,
