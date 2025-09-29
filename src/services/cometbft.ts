@@ -1,4 +1,12 @@
-import { StatusResponse, NetInfoResponse, ABCIInfoResponse, UnconfirmedTxsResponse, NodeHealth, DashboardData } from '../types/cometbft';
+import {
+  StatusResponse,
+  NetInfoResponse,
+  ABCIInfoResponse,
+  UnconfirmedTxsResponse,
+  ConsensusStateResponse,
+  NodeHealth,
+  DashboardData,
+} from '../types/cometbft';
 
 export class CometBFTService {
   private baseUrl: string;
@@ -77,20 +85,67 @@ export class CometBFTService {
     }
   }
 
+  async getConsensusState(): Promise<ConsensusStateResponse> {
+    try {
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/dump_consensus_state`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      throw new Error(`Failed to fetch consensus state: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
 
+  private parseVoteRatio(bitArray?: string): number | null {
+    if (!bitArray) {
+      return null;
+    }
 
-  private analyzeNodeHealth(status: StatusResponse | null, netInfo: NetInfoResponse | null): NodeHealth {
+    const match = bitArray.match(/BA\{(\d+):(.*)\}/);
+    if (!match) {
+      return null;
+    }
+
+    const total = parseInt(match[1], 10);
+    const votesString = match[2];
+
+    if (!Number.isFinite(total) || total === 0 || !votesString) {
+      return null;
+    }
+
+    const voteCount = (votesString.match(/[xX1]/g) || []).length;
+    return voteCount / total;
+  }
+
+  private analyzeNodeHealth(
+    status: StatusResponse | null,
+    netInfo: NetInfoResponse | null,
+    consensusState: ConsensusStateResponse | null,
+  ): NodeHealth {
     const health: NodeHealth = {
       isOnline: false,
       isSynced: false,
       hasErrors: false,
       errorMessages: [],
       lastUpdated: new Date(),
+      consensus: {
+        healthy: false,
+        height: null,
+        round: null,
+        step: null,
+        prevoteRatio: null,
+        precommitRatio: null,
+        issues: [],
+      },
     };
 
     if (!status) {
       health.hasErrors = true;
       health.errorMessages.push('Unable to fetch node status');
+      if (!consensusState) {
+        health.consensus.issues.push('Consensus state unavailable');
+      }
       return health;
     }
 
@@ -124,6 +179,65 @@ export class CometBFTService {
       }
     }
 
+    if (!consensusState) {
+      const message = 'Consensus state unavailable';
+      health.consensus.issues.push(message);
+      health.errorMessages.push(message);
+      health.hasErrors = true;
+    } else {
+      const { round_state } = consensusState.result;
+      const consensusIssues: string[] = [];
+
+      health.consensus.height = parseInt(round_state.height, 10) || null;
+      const roundValue =
+        typeof round_state.round === 'number'
+          ? round_state.round
+          : parseInt(round_state.round as string, 10);
+      health.consensus.round = Number.isFinite(roundValue) ? roundValue : null;
+      health.consensus.step =
+        round_state.step !== undefined && round_state.step !== null
+          ? String(round_state.step)
+          : null;
+
+      const latestBlockHeight = parseInt(status.result.sync_info.latest_block_height, 10);
+      if (
+        Number.isFinite(latestBlockHeight)
+        && health.consensus.height !== null
+        && Math.abs(latestBlockHeight - health.consensus.height) > 2
+      ) {
+        consensusIssues.push('Consensus height is lagging behind latest block height');
+      }
+
+      const voteSets = round_state.votes ?? round_state.height_vote_set;
+      const voteSet = voteSets?.find((set) => {
+        const round = typeof set.round === 'string' ? parseInt(set.round, 10) : set.round;
+        return round === health.consensus.round;
+      }) ?? voteSets?.[0];
+
+      const prevoteRatio = this.parseVoteRatio(voteSet?.prevotes_bit_array);
+      const precommitRatio = this.parseVoteRatio(voteSet?.precommits_bit_array);
+      health.consensus.prevoteRatio = prevoteRatio;
+      health.consensus.precommitRatio = precommitRatio;
+
+      const participationThreshold = 2 / 3;
+
+      if (prevoteRatio !== null && prevoteRatio < participationThreshold) {
+        consensusIssues.push('Prevote participation below two-thirds threshold');
+      }
+
+      if (precommitRatio !== null && precommitRatio < participationThreshold) {
+        consensusIssues.push('Precommit participation below two-thirds threshold');
+      }
+
+      if (consensusIssues.length > 0) {
+        health.hasErrors = true;
+        health.errorMessages.push(...consensusIssues);
+      }
+
+      health.consensus.issues = consensusIssues;
+      health.consensus.healthy = consensusIssues.length === 0;
+    }
+
     return health;
   }
 
@@ -139,18 +253,29 @@ export class CometBFTService {
         hasErrors: true,
         errorMessages: ['Loading...'],
         lastUpdated: new Date(),
+        consensus: {
+          healthy: false,
+          height: null,
+          round: null,
+          step: null,
+          prevoteRatio: null,
+          precommitRatio: null,
+          issues: [],
+        },
       },
       loading: true,
       error: null,
+      consensusState: null,
     };
 
     try {
       // Fetch all data in parallel
-      const [status, netInfo, abciInfo, mempool] = await Promise.allSettled([
+      const [status, netInfo, abciInfo, mempool, consensusState] = await Promise.allSettled([
         this.getStatus(),
         this.getNetInfo(),
         this.getABCIInfo(),
         this.getUnconfirmedTxs(),
+        this.getConsensusState(),
       ]);
 
       // Handle status
@@ -181,8 +306,14 @@ export class CometBFTService {
         console.warn('Mempool info error:', mempool.reason);
       }
 
+      if (consensusState.status === 'fulfilled') {
+        data.consensusState = consensusState.value;
+      } else {
+        console.warn('Consensus state error:', consensusState.reason);
+      }
+
       // Analyze health
-      data.health = this.analyzeNodeHealth(data.status, data.netInfo);
+      data.health = this.analyzeNodeHealth(data.status, data.netInfo, data.consensusState);
       data.health.lastUpdated = new Date();
       data.loading = false;
 
@@ -195,6 +326,15 @@ export class CometBFTService {
         hasErrors: true,
         errorMessages: [data.error],
         lastUpdated: new Date(),
+        consensus: {
+          healthy: false,
+          height: null,
+          round: null,
+          step: null,
+          prevoteRatio: null,
+          precommitRatio: null,
+          issues: [data.error],
+        },
       };
     }
 

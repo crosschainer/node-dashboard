@@ -5,6 +5,7 @@ import { VersionInfoCard } from './VersionInfoCard';
 import { NetworkInfoCard } from './NetworkInfoCard';
 import { HealthAlertsCard } from './HealthAlertsCard';
 import { MempoolCard } from './MempoolCard';
+import { ConsensusStateCard } from './ConsensusStateCard';
 import { useCometBFT } from '../hooks/useCometBFT';
 
 export function Dashboard() {
@@ -38,12 +39,13 @@ export function Dashboard() {
         alignItems: 'start'
       }}>
         {/* Primary Status Cards */}
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: 'var(--space-6)' 
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--space-6)'
         }}>
           <NodeStatusCard data={data} />
+          <ConsensusStateCard data={data} />
           <HealthAlertsCard data={data} />
           <MempoolCard data={data} />
         </div>
