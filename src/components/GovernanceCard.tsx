@@ -502,10 +502,7 @@ export function GovernanceCard({
             </p>
           ) : null}
         </div>
-        <div style={{ display: 'flex', gap: 'var(--space-3)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-          <span>Active: {activeCount}</span>
-          <span>Finalized: {finalizedCount}</span>
-        </div>
+        
       </div>
 
       {error && (
