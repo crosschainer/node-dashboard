@@ -58,8 +58,8 @@ export function Dashboard() {
     },
     {
       id: 'governance',
-      label: 'Version & governance',
-      description: 'Release alignment and validator decision tracking',
+      label: 'Governance',
+      description: 'Validator decision tracking',
     },
   ];
 
