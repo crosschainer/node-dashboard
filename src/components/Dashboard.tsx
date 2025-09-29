@@ -4,14 +4,15 @@ import { NodeStatusCard } from './NodeStatusCard';
 import { VersionInfoCard } from './VersionInfoCard';
 import { NetworkInfoCard } from './NetworkInfoCard';
 import { HealthAlertsCard } from './HealthAlertsCard';
+import { MempoolCard } from './MempoolCard';
 import { useCometBFT } from '../hooks/useCometBFT';
 
 export function Dashboard() {
   const [nodeUrl, setNodeUrl] = useState('https://node.xian.org');
-  const { data, refresh, isLoading } = useCometBFT({ 
+  const { data, refresh, isLoading } = useCometBFT({
     nodeUrl,
-    refreshInterval: 30000,
-    autoRefresh: true 
+    refreshInterval: 5000,
+    autoRefresh: true
   });
 
   const handleNodeUrlChange = (url: string) => {
@@ -44,6 +45,7 @@ export function Dashboard() {
         }}>
           <NodeStatusCard data={data} />
           <HealthAlertsCard data={data} />
+          <MempoolCard data={data} />
         </div>
 
         {/* Secondary Information Cards */}
@@ -70,7 +72,7 @@ export function Dashboard() {
           Xian Node Dashboard - Real-time monitoring for CometBFT 0.38.12 nodes
         </p>
         <p style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)' }}>
-          Auto-refresh every 30 seconds • Built with React & TypeScript
+          Auto-refresh every 5 seconds • Built with React & TypeScript
         </p>
       </footer>
     </div>

@@ -14,10 +14,11 @@ A modern, real-time dashboard for monitoring CometBFT 0.38.12 node health and st
 - **Version Information**: CometBFT version, ABCI app version, and build details
 - **Network Information**: Network ID, peer count, validator status, and connectivity
 - **Health & Alerts**: Active issue detection, system status, and error monitoring
+- **Mempool Activity**: Pending transactions, queue depth, and recent transaction previews
 
 ### User Experience
 - **Configurable Node URL**: Easy switching between different CometBFT nodes
-- **Real-time Updates**: Auto-refresh every 30 seconds with manual refresh option
+- **Real-time Updates**: Auto-refresh every 5 seconds with manual refresh option
 - **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
 - **Modern UI**: Dark theme with gradient accents and smooth animations
 - **Error Handling**: Comprehensive error detection with user-friendly messages
@@ -110,7 +111,7 @@ CMD ["npm", "run", "preview"]
 Create a `.env` file for custom configuration:
 ```env
 VITE_DEFAULT_NODE_URL=https://your-node.com
-VITE_REFRESH_INTERVAL=30000
+VITE_REFRESH_INTERVAL=5000
 VITE_REQUEST_TIMEOUT=10000
 ```
 
@@ -123,6 +124,7 @@ The dashboard connects to these CometBFT REST API endpoints:
 | `/status` | Node sync status | Block height, sync status, catching up |
 | `/abci_info` | ABCI application info | App version, build details |
 | `/net_info` | Network information | Peer count, network ID |
+| `/unconfirmed_txs` | Mempool backlog | Pending transactions and queue size |
 | `/health` | Node health check | Overall health status |
 
 ## 🏗️ Project Structure
@@ -184,9 +186,15 @@ Main dashboard layout with responsive grid system for monitoring cards.
 - Validator status
 - Network connectivity health
 
+#### `MempoolCard.tsx`
+- Pending transaction overview
+- Queue depth and byte size metrics
+- Recent transaction previews for debugging
+
 #### `HealthAlertsCard.tsx`
 - Active issue detection
 - System status overview
+- Mempool backlog awareness
 - Error categorization and alerts
 - Last health check timestamp
 

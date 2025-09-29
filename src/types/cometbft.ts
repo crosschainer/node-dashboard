@@ -117,6 +117,17 @@ export interface ABCIInfoResponse {
   };
 }
 
+export interface UnconfirmedTxsResponse {
+  jsonrpc: string;
+  id: number;
+  result: {
+    n_txs: string;
+    total: string;
+    total_bytes: string;
+    txs: string[];
+  };
+}
+
 export interface NodeHealth {
   isOnline: boolean;
   isSynced: boolean;
@@ -129,6 +140,7 @@ export interface DashboardData {
   status: StatusResponse | null;
   netInfo: NetInfoResponse | null;
   abciInfo: ABCIInfoResponse | null;
+  mempool: UnconfirmedTxsResponse | null;
   health: NodeHealth;
   loading: boolean;
   error: string | null;
