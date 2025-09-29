@@ -298,38 +298,6 @@ const renderVoteProgress = (
   );
 };
 
-const formatDuration = (seconds: number) => {
-  if (!Number.isFinite(seconds) || seconds < 0) {
-    return '—';
-  }
-
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-
-  return `${minutes}m ${remainingSeconds.toString().padStart(2, '0')}s`;
-};
-
-const formatRelative = (seconds: number) => {
-  if (!Number.isFinite(seconds) || seconds < 0) {
-    return '—';
-  }
-
-  if (seconds < 1) {
-    return 'just now';
-  }
-
-  if (seconds < 60) {
-    return `${seconds}s ago`;
-  }
-
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}m ago`;
-};
-
 export function ConsensusStateCard({ data }: ConsensusStateCardProps) {
   const consensusHealth = data.health.consensus;
 
@@ -371,8 +339,6 @@ export function ConsensusStateCard({ data }: ConsensusStateCardProps) {
 
   const roundStart = new Date(round_state.start_time);
   const now = new Date();
-  const roundDurationSeconds = Math.max(0, Math.round((now.getTime() - roundStart.getTime()) / 1000));
-  const lastUpdatedSeconds = Math.max(0, Math.round((now.getTime() - data.health.lastUpdated.getTime()) / 1000));
 
   const lastCommitProgress = combineVoteProgress(
     round_state.last_commit?.votes_bit_array,
