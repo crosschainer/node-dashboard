@@ -6,6 +6,7 @@ import {
   ConsensusStateResponse,
   NodeHealth,
   DashboardData,
+  ConsensusVoteSet,
 } from '../types/cometbft';
 
 export class CometBFTService {
@@ -97,7 +98,7 @@ export class CometBFTService {
     }
   }
 
-  private parseVoteRatio(bitArray?: string): number | null {
+  private parseVoteRatioFromBitArray(bitArray?: string): number | null {
     if (!bitArray) {
       return null;
     }
@@ -116,6 +117,35 @@ export class CometBFTService {
 
     const voteCount = (votesString.match(/[xX1]/g) || []).length;
     return voteCount / total;
+  }
+
+  private parseVoteRatioFromVotes(votes?: string[]): number | null {
+    if (!votes || votes.length === 0) {
+      return null;
+    }
+
+    const meaningfulVotes = votes.filter((vote) => typeof vote === 'string' && vote.trim().length > 0);
+    if (meaningfulVotes.length === 0) {
+      return null;
+    }
+
+    const affirmativeVotes = meaningfulVotes.filter((vote) => !vote.includes('<nil>') && !/nil-vote/i.test(vote));
+    return affirmativeVotes.length / meaningfulVotes.length;
+  }
+
+  private calculateVoteRatio(voteSet: ConsensusVoteSet | undefined, type: 'prevotes' | 'precommits'): number | null {
+    if (!voteSet) {
+      return null;
+    }
+
+    const bitArray = type === 'prevotes' ? voteSet.prevotes_bit_array : voteSet.precommits_bit_array;
+    const ratioFromBits = this.parseVoteRatioFromBitArray(bitArray);
+    if (ratioFromBits !== null) {
+      return ratioFromBits;
+    }
+
+    const votes = type === 'prevotes' ? voteSet.prevotes : voteSet.precommits;
+    return this.parseVoteRatioFromVotes(votes);
   }
 
   private analyzeNodeHealth(
@@ -226,8 +256,8 @@ export class CometBFTService {
         return round === health.consensus.round;
       }) ?? voteSets?.[0];
 
-      const prevoteRatio = this.parseVoteRatio(voteSet?.prevotes_bit_array);
-      const precommitRatio = this.parseVoteRatio(voteSet?.precommits_bit_array);
+      const prevoteRatio = this.calculateVoteRatio(voteSet, 'prevotes');
+      const precommitRatio = this.calculateVoteRatio(voteSet, 'precommits');
       health.consensus.prevoteRatio = prevoteRatio;
       health.consensus.precommitRatio = precommitRatio;
 
@@ -288,6 +318,7 @@ export class CometBFTService {
       loading: true,
       error: null,
       consensusState: null,
+      consensusHistory: [],
     };
 
     try {
@@ -358,6 +389,7 @@ export class CometBFTService {
           issues: [data.error],
         },
       };
+      data.consensusHistory = [];
     }
 
     return data;

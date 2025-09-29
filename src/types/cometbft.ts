@@ -232,6 +232,15 @@ export interface ConsensusHealth {
   issues: string[];
 }
 
+export interface ConsensusParticipationSample {
+  timestamp: string;
+  height: number | null;
+  round: number | null;
+  step: string | null;
+  prevoteRatio: number | null;
+  precommitRatio: number | null;
+}
+
 export interface NodeHealth {
   isOnline: boolean;
   isSynced: boolean;
@@ -250,4 +259,5 @@ export interface DashboardData {
   health: NodeHealth;
   loading: boolean;
   error: string | null;
+  consensusHistory: ConsensusParticipationSample[];
 }
