@@ -268,12 +268,20 @@ export interface NodeHealth {
   consensus: ConsensusHealth;
 }
 
+export type GovernanceArgument =
+  | number
+  | string
+  | boolean
+  | Record<string, unknown>
+  | unknown[]
+  | null;
+
 export interface GovernanceProposal {
   id: number;
   yes: number;
   no: number;
   type: string;
-  arg: number | string | null;
+  arg: GovernanceArgument;
   voters: string[];
   finalized: boolean;
 }

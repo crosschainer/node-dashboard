@@ -9,6 +9,7 @@ import {
   ConsensusVoteSet,
   ABCIQueryResponse,
   GovernanceProposal,
+  GovernanceArgument,
 } from '../types/cometbft';
 
 export class CometBFTService {
@@ -101,12 +102,40 @@ export class CometBFTService {
     const type = typeof record.type === 'string' ? record.type : 'unknown';
     const finalized = Boolean(record.finalized);
 
-    let arg: number | string | null = null;
-    if (typeof record.arg === 'number') {
+    let arg: GovernanceArgument = null;
+    if (typeof record.arg === 'number' || typeof record.arg === 'boolean') {
       arg = record.arg;
     } else if (typeof record.arg === 'string') {
-      const numericArg = Number(record.arg);
-      arg = Number.isNaN(numericArg) ? record.arg : numericArg;
+      const rawArg = record.arg.trim();
+      if (rawArg.length > 0) {
+        const numericArg = Number(rawArg);
+        if (!Number.isNaN(numericArg) && String(numericArg) === rawArg) {
+          arg = numericArg;
+        } else {
+          try {
+            if (rawArg.startsWith('{') || rawArg.startsWith('[')) {
+              const parsed = JSON.parse(rawArg);
+              if (parsed !== null && typeof parsed === 'object') {
+                arg = Array.isArray(parsed)
+                  ? (parsed as unknown[])
+                  : (parsed as Record<string, unknown>);
+              } else {
+                arg = parsed as GovernanceArgument;
+              }
+            } else {
+              arg = rawArg;
+            }
+          } catch (error) {
+            arg = rawArg;
+          }
+        }
+      } else {
+        arg = '';
+      }
+    } else if (Array.isArray(record.arg)) {
+      arg = record.arg as unknown[];
+    } else if (typeof record.arg === 'object' && record.arg !== null) {
+      arg = record.arg as Record<string, unknown>;
     }
 
     const voters = Array.isArray(record.voters)
