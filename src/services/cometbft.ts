@@ -7,6 +7,8 @@ import {
   NodeHealth,
   DashboardData,
   ConsensusVoteSet,
+  ABCIQueryResponse,
+  GovernanceProposal,
 } from '../types/cometbft';
 
 export class CometBFTService {
@@ -16,6 +18,23 @@ export class CometBFTService {
   constructor(baseUrl: string = 'https://node.xian.org', timeout: number = 10000) {
     this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
     this.timeout = timeout;
+  }
+
+  private buildAbciQueryUrl(path: string, data?: string): string {
+    const quotedPath = `"${path}"`;
+    const params = new URLSearchParams();
+    params.set('path', quotedPath);
+
+    if (typeof data === 'string') {
+      params.set('data', data);
+    }
+
+    // URLSearchParams encodes forward slashes; decode them for compatibility with CometBFT RPC
+    const query = params
+      .toString()
+      .replace(/%2F/g, '/')
+      .replace(/%3A/g, ':');
+    return `${this.baseUrl}/abci_query?${query}`;
   }
 
   private async fetchWithTimeout(url: string): Promise<Response> {
@@ -36,6 +55,96 @@ export class CometBFTService {
       clearTimeout(timeoutId);
       throw error;
     }
+  }
+
+  private decodeBase64Value(value: string | null | undefined): string | null {
+    if (!value) {
+      return null;
+    }
+
+    try {
+      if (typeof window !== 'undefined' && typeof window.atob === 'function') {
+        const binary = window.atob(value);
+        if (typeof TextDecoder !== 'undefined') {
+          const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+          return new TextDecoder().decode(bytes);
+        }
+        return binary;
+      }
+
+      if (typeof atob === 'function') {
+        const binary = atob(value);
+        if (typeof TextDecoder !== 'undefined') {
+          const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+          return new TextDecoder().decode(bytes);
+        }
+        return binary;
+      }
+
+      if (typeof Buffer !== 'undefined') {
+        return Buffer.from(value, 'base64').toString('utf-8');
+      }
+    } catch (error) {
+      console.warn('Failed to decode base64 value', error);
+    }
+
+    return null;
+  }
+
+  private normalizeGovernanceProposal(proposalId: number, payload: unknown): GovernanceProposal {
+    const record = (typeof payload === 'object' && payload !== null)
+      ? (payload as Record<string, unknown>)
+      : {};
+
+    const yes = Number(record.yes ?? 0);
+    const no = Number(record.no ?? 0);
+    const type = typeof record.type === 'string' ? record.type : 'unknown';
+    const finalized = Boolean(record.finalized);
+
+    let arg: number | string | null = null;
+    if (typeof record.arg === 'number') {
+      arg = record.arg;
+    } else if (typeof record.arg === 'string') {
+      const numericArg = Number(record.arg);
+      arg = Number.isNaN(numericArg) ? record.arg : numericArg;
+    }
+
+    const voters = Array.isArray(record.voters)
+      ? (record.voters as unknown[]).filter((entry): entry is string => typeof entry === 'string')
+      : [];
+
+    return {
+      id: proposalId,
+      yes: Number.isFinite(yes) ? yes : 0,
+      no: Number.isFinite(no) ? no : 0,
+      type,
+      arg,
+      voters,
+      finalized,
+    };
+  }
+
+  private async queryAbci(path: string, data?: string): Promise<ABCIQueryResponse> {
+    const url = this.buildAbciQueryUrl(path, data);
+    const response = await this.fetchWithTimeout(url);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const payload = await response.json() as ABCIQueryResponse;
+    const abciResponse = payload?.result?.response;
+
+    if (!abciResponse) {
+      throw new Error('Malformed ABCI query response');
+    }
+
+    if (abciResponse.code !== 0) {
+      const errorMessage = abciResponse.log || `ABCI query failed with code ${abciResponse.code}`;
+      throw new Error(errorMessage);
+    }
+
+    return payload;
   }
 
   async getStatus(): Promise<StatusResponse> {
@@ -96,6 +205,57 @@ export class CometBFTService {
     } catch (error) {
       throw new Error(`Failed to fetch consensus state: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  async getGovernanceTotalProposals(): Promise<number> {
+    try {
+      const response = await this.queryAbci('/get/masternodes.total_votes');
+      const decoded = this.decodeBase64Value(response.result.response.value);
+
+      if (!decoded) {
+        return 0;
+      }
+
+      const total = Number(decoded.trim());
+      if (!Number.isFinite(total)) {
+        throw new Error(`Invalid total proposal count: ${decoded}`);
+      }
+
+      return total;
+    } catch (error) {
+      throw new Error(`Failed to fetch governance proposal count: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async getGovernanceProposal(proposalId: number): Promise<GovernanceProposal | null> {
+    try {
+      const response = await this.queryAbci(`/get/masternodes.votes:${proposalId}`);
+      const decoded = this.decodeBase64Value(response.result.response.value);
+
+      if (!decoded) {
+        return null;
+      }
+
+      const parsed = JSON.parse(decoded) as unknown;
+      return this.normalizeGovernanceProposal(proposalId, parsed);
+    } catch (error) {
+      console.warn(`Failed to load governance proposal ${proposalId}:`, error);
+      return null;
+    }
+  }
+
+  async getGovernanceProposalsRange(startId: number, endId: number): Promise<GovernanceProposal[]> {
+    if (!Number.isFinite(startId) || !Number.isFinite(endId) || endId < startId) {
+      return [];
+    }
+
+    const ids: number[] = [];
+    for (let id = Math.max(1, Math.floor(startId)); id <= Math.floor(endId); id += 1) {
+      ids.push(id);
+    }
+
+    const results = await Promise.all(ids.map((id) => this.getGovernanceProposal(id)));
+    return results.filter((proposal): proposal is GovernanceProposal => proposal !== null);
   }
 
   private parseVoteRatioFromBitArray(bitArray?: string): number | null {

@@ -128,6 +128,24 @@ export interface UnconfirmedTxsResponse {
   };
 }
 
+export interface ABCIQueryResponse {
+  jsonrpc: string;
+  id: number;
+  result: {
+    response: {
+      code: number;
+      log: string;
+      info: string;
+      index: string;
+      key: string | null;
+      value: string | null;
+      proofOps: unknown;
+      height: string;
+      codespace: string;
+    };
+  };
+}
+
 export interface ConsensusValidator {
   address: string;
   pub_key: {
@@ -248,6 +266,23 @@ export interface NodeHealth {
   errorMessages: string[];
   lastUpdated: Date;
   consensus: ConsensusHealth;
+}
+
+export interface GovernanceProposal {
+  id: number;
+  yes: number;
+  no: number;
+  type: string;
+  arg: number | string | null;
+  voters: string[];
+  finalized: boolean;
+}
+
+export interface GovernancePage {
+  totalProposals: number;
+  proposals: GovernanceProposal[];
+  page: number;
+  pageSize: number;
 }
 
 export interface DashboardData {
