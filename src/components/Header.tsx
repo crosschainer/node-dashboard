@@ -39,6 +39,7 @@ export function Header({ isLoading, lastUpdated, onRefresh, onNodeUrlChange }: H
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        flexWrap: 'wrap',
         maxWidth: '1400px',
         margin: '0 auto',
         gap: 'var(--space-4)'
