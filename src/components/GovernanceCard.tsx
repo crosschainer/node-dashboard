@@ -1,3 +1,4 @@
+import { ReactNode } from 'react';
 import { GovernanceHookResult } from '../hooks/useGovernance';
 import { Card } from './Card';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -6,6 +7,47 @@ import { RefreshIcon } from './Icons';
 interface GovernanceCardProps {
   isValidator: boolean;
   governance: GovernanceHookResult;
+}
+
+type ProposalArgument = GovernanceHookResult['proposals'][number]['arg'];
+
+function renderProposalArgument(arg: ProposalArgument): ReactNode {
+  if (arg === null || typeof arg === 'undefined') {
+    return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+  }
+
+  if (typeof arg === 'string') {
+    const trimmed = arg.trim();
+    if (!trimmed) {
+      return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+    }
+    return <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{trimmed}</span>;
+  }
+
+  if (typeof arg === 'number' || typeof arg === 'boolean') {
+    return <span style={{ fontFamily: 'var(--font-mono)' }}>{String(arg)}</span>;
+  }
+
+  if (Array.isArray(arg) || (typeof arg === 'object' && arg !== null)) {
+    return (
+      <pre
+        style={{
+          margin: 0,
+          padding: 'var(--space-2)',
+          borderRadius: 'var(--radius-sm)',
+          background: 'var(--bg-tertiary)',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--text-xs)',
+        }}
+      >
+        {JSON.stringify(arg, null, 2)}
+      </pre>
+    );
+  }
+
+  return <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{String(arg)}</span>;
 }
 
 export function GovernanceCard({ isValidator, governance }: GovernanceCardProps) {
@@ -179,7 +221,9 @@ export function GovernanceCard({ isValidator, governance }: GovernanceCardProps)
                 >
                   <td style={{ padding: 'var(--space-3)', fontFamily: 'var(--font-mono)' }}>{proposal.id}</td>
                   <td style={{ padding: 'var(--space-3)', textTransform: 'capitalize' }}>{proposal.type.replace(/_/g, ' ')}</td>
-                  <td style={{ padding: 'var(--space-3)' }}>{proposal.arg ?? '—'}</td>
+                  <td style={{ padding: 'var(--space-3)', verticalAlign: 'top' }}>
+                    {renderProposalArgument(proposal.arg)}
+                  </td>
                   <td style={{ padding: 'var(--space-3)', color: 'var(--color-success)', fontWeight: 'var(--font-medium)' }}>{proposal.yes}</td>
                   <td style={{ padding: 'var(--space-3)', color: 'var(--color-warning)', fontWeight: 'var(--font-medium)' }}>{proposal.no}</td>
                   <td style={{ padding: 'var(--space-3)' }}>{proposal.finalized ? 'Yes' : 'No'}</td>
