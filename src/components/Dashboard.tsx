@@ -9,16 +9,19 @@ import { VersionInfoCard } from './VersionInfoCard';
 import { useCometBFT } from '../hooks/useCometBFT';
 import { useGovernance } from '../hooks/useGovernance';
 import { GovernanceCard } from './GovernanceCard';
+import { useWallet } from '../hooks/useWallet';
 
 export function Dashboard() {
   const [nodeUrl, setNodeUrl] = useState('https://node.xian.org');
-  const { data, refresh, isLoading } = useCometBFT({
+  const { data } = useCometBFT({
     nodeUrl,
     refreshInterval: 5000,
     autoRefresh: true,
     consensusRefreshInterval: 1000,
     enableConsensusRealtime: true
   });
+
+  const wallet = useWallet();
 
   const validatorInfo = data.status?.result.validator_info;
   const votingPower = validatorInfo ? Number(validatorInfo.voting_power) : 0;
@@ -37,10 +40,12 @@ export function Dashboard() {
   return (
     <div className="dashboard-container">
       <Header
-        isLoading={isLoading}
-        lastUpdated={data.health.lastUpdated}
-        onRefresh={refresh}
         onNodeUrlChange={handleNodeUrlChange}
+        walletInfo={wallet.walletInfo}
+        isConnectingWallet={wallet.isConnecting}
+        onConnectWallet={wallet.connect}
+        walletError={wallet.error}
+        onClearWalletError={wallet.clearError}
       />
 
       <main className="dashboard-content">
@@ -104,7 +109,15 @@ export function Dashboard() {
               <VersionInfoCard data={data} />
             </div>
             <div className="dashboard-item dashboard-item--wide">
-              <GovernanceCard isValidator={isValidator} governance={governance} />
+              <GovernanceCard
+                isValidator={isValidator}
+                governance={governance}
+                walletInfo={wallet.walletInfo}
+                isConnectingWallet={wallet.isConnecting}
+                onConnectWallet={wallet.connect}
+                walletError={wallet.error}
+                clearWalletError={wallet.clearError}
+              />
             </div>
           </div>
         </section>

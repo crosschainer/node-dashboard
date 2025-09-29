@@ -1,18 +1,33 @@
 import { useState, FormEvent } from 'react';
 import { LoadingSpinner } from './LoadingSpinner';
 import { cometbftService } from '../services/cometbft';
-import { RefreshIcon, CometBFTLogo, PencilIcon } from './Icons';
+import { CometBFTLogo, PencilIcon, WalletIcon, XIcon } from './Icons';
+import { ConnectedWalletInfo } from '../hooks/useWallet';
 
 interface HeaderProps {
-  isLoading: boolean;
-  lastUpdated: Date | null;
-  onRefresh: () => void;
   onNodeUrlChange: (url: string) => void;
+  walletInfo: ConnectedWalletInfo | null;
+  isConnectingWallet: boolean;
+  onConnectWallet: () => void;
+  walletError: string | null;
+  onClearWalletError: () => void;
 }
 
-export function Header({ isLoading, lastUpdated, onRefresh, onNodeUrlChange }: HeaderProps) {
+export function Header({
+  onNodeUrlChange,
+  walletInfo,
+  isConnectingWallet,
+  onConnectWallet,
+  walletError,
+  onClearWalletError,
+}: HeaderProps) {
   const [nodeUrl, setNodeUrl] = useState(cometbftService.getBaseUrl());
   const [isEditing, setIsEditing] = useState(false);
+
+  const walletDisplayAddress = walletInfo?.truncatedAddress
+    ?? (walletInfo?.address
+      ? `${walletInfo.address.slice(0, 6)}…${walletInfo.address.slice(-4)}`
+      : null);
 
   const handleUrlSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -171,52 +186,85 @@ export function Header({ isLoading, lastUpdated, onRefresh, onNodeUrlChange }: H
           )}
         </div>
 
-        {/* Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-          {/* Last Updated */}
-          {lastUpdated && (
-            <div style={{ 
-              fontSize: 'var(--text-xs)', 
-              color: 'var(--text-muted)',
-              textAlign: 'right'
-            }}>
-              <div>Last updated:</div>
-              <div>{lastUpdated.toLocaleTimeString()}</div>
+        {/* Wallet Controls */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 'var(--space-2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                Wallet status
+              </span>
+              <span style={{ fontSize: 'var(--text-sm)', color: walletInfo ? 'var(--text-secondary)' : 'var(--text-muted)', fontFamily: walletInfo ? 'var(--font-mono)' : 'inherit' }}>
+                {walletInfo ? walletDisplayAddress : 'Not connected'}
+              </span>
+              {walletInfo?.locked ? (
+                <span style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--color-warning)' }}>
+                  Wallet is locked
+                </span>
+              ) : null}
             </div>
-          )}
-
-          {/* Refresh Button */}
-          <button
-            onClick={onRefresh}
-            disabled={isLoading}
-            style={{
+            <button
+              type="button"
+              onClick={onConnectWallet}
+              disabled={isConnectingWallet}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
+                padding: 'var(--space-3) var(--space-4)',
+                background: 'var(--primary-gradient)',
+                border: 'none',
+                borderRadius: 'var(--radius-lg)',
+                color: 'white',
+                fontSize: 'var(--text-sm)',
+                fontWeight: 'var(--font-medium)',
+                cursor: isConnectingWallet ? 'not-allowed' : 'pointer',
+                transition: 'var(--transition-fast)',
+                opacity: isConnectingWallet ? 0.7 : 1,
+              }}
+            >
+              {isConnectingWallet ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  Connecting…
+                </>
+              ) : (
+                <>
+                  <WalletIcon size={16} />
+                  {walletInfo ? 'Reconnect Wallet' : 'Connect Wallet'}
+                </>
+              )}
+            </button>
+          </div>
+          {walletError ? (
+            <div style={{
               display: 'flex',
               alignItems: 'center',
               gap: 'var(--space-2)',
-              padding: 'var(--space-3) var(--space-4)',
-              background: isLoading ? 'var(--bg-tertiary)' : 'var(--primary-gradient)',
-              border: 'none',
-              borderRadius: 'var(--radius-lg)',
-              color: 'white',
-              fontSize: 'var(--text-sm)',
-              fontWeight: 'var(--font-medium)',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              transition: 'var(--transition-fast)',
-              opacity: isLoading ? 0.7 : 1
-            }}
-          >
-            {isLoading ? (
-              <>
-                <LoadingSpinner size="sm" />
-                Refreshing...
-              </>
-            ) : (
-              <>
-                <RefreshIcon size={16} />
-                Refresh
-              </>
-            )}
-          </button>
+              background: 'rgba(255, 71, 87, 0.12)',
+              color: 'var(--color-error)',
+              borderRadius: 'var(--radius-md)',
+              padding: 'var(--space-2) var(--space-3)',
+              fontSize: 'var(--text-xs)',
+            }}>
+              <span>{walletError}</span>
+              <button
+                type="button"
+                onClick={onClearWalletError}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'inherit',
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+                aria-label="Dismiss wallet error"
+              >
+                <XIcon size={12} />
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
     </header>

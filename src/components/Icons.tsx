@@ -122,3 +122,25 @@ export function PencilIcon({ size = 16, className = '', style = {} }: IconProps)
     </svg>
   );
 }
+
+export function WalletIcon({ size = 16, className = '', style = {} }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      style={style}
+    >
+      <rect x="2" y="6" width="20" height="14" rx="3" ry="3" />
+      <path d="M18 12h-4a2 2 0 0 0 0 4h4" />
+      <circle cx="16" cy="14" r="1" fill="currentColor" stroke="none" />
+      <path d="M2 10h14a2 2 0 0 0 2-2V6" />
+    </svg>
+  );
+}
