@@ -314,15 +314,6 @@ export function GovernanceCard({
     }
   };
 
-  const activeCount = useMemo(
-    () => proposals.filter((proposal) => !proposal.finalized).length,
-    [proposals],
-  );
-
-  const finalizedCount = useMemo(
-    () => proposals.filter((proposal) => proposal.finalized).length,
-    [proposals],
-  );
 
   const showingFrom = proposals.length > 0
     ? proposals[0].id
