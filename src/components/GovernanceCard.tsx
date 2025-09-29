@@ -372,7 +372,8 @@ export function GovernanceCard({
           <button
             type="button"
             onClick={openProposalModal}
-            disabled={!walletInfo || walletInfo.locked}
+            disabled={!walletInfo || walletInfo?.locked}
+
             style={{
               padding: 'var(--space-2) var(--space-3)',
               borderRadius: 'var(--radius-md)',
@@ -381,8 +382,9 @@ export function GovernanceCard({
               color: 'white',
               fontSize: 'var(--text-sm)',
               fontWeight: 'var(--font-medium)',
-              cursor: !walletInfo || walletInfo.locked ? 'default' : 'pointer',
-              opacity: !walletInfo || walletInfo.locked ? 0.7 : 1,
+              cursor: !walletInfo || walletInfo?.locked ? 'default' : 'pointer',
+              opacity: !walletInfo || walletInfo?.locked ? 0.7 : 1,
+
             }}
           >
             New Proposal
@@ -672,7 +674,7 @@ export function GovernanceCard({
                           <button
                             type="button"
                             onClick={() => handleVote(proposal.id, 'yes')}
-                            disabled={!!voteStatus || walletInfo.locked}
+                            disabled={!!voteStatus || walletInfo?.locked}
                             style={{
                               padding: 'var(--space-1) var(--space-2)',
                               borderRadius: 'var(--radius-sm)',
@@ -681,8 +683,8 @@ export function GovernanceCard({
                               color: 'white',
                               fontSize: 'var(--text-xs)',
                               fontWeight: 'var(--font-medium)',
-                              cursor: !!voteStatus || walletInfo.locked ? 'default' : 'pointer',
-                              opacity: !!voteStatus || walletInfo.locked ? 0.7 : 1,
+                              cursor: !!voteStatus || walletInfo?.locked ? 'default' : 'pointer',
+                              opacity: !!voteStatus || walletInfo?.locked ? 0.7 : 1,
                             }}
                           >
                             {isVoting && voteStatus?.direction === 'yes' ? 'Voting…' : 'Vote Yes'}
@@ -690,7 +692,7 @@ export function GovernanceCard({
                           <button
                             type="button"
                             onClick={() => handleVote(proposal.id, 'no')}
-                            disabled={!!voteStatus || walletInfo.locked}
+                            disabled={!!voteStatus || walletInfo?.locked}
                             style={{
                               padding: 'var(--space-1) var(--space-2)',
                               borderRadius: 'var(--radius-sm)',
@@ -699,8 +701,8 @@ export function GovernanceCard({
                               color: 'white',
                               fontSize: 'var(--text-xs)',
                               fontWeight: 'var(--font-medium)',
-                              cursor: !!voteStatus || walletInfo.locked ? 'default' : 'pointer',
-                              opacity: !!voteStatus || walletInfo.locked ? 0.7 : 1,
+                              cursor: !!voteStatus || walletInfo?.locked ? 'default' : 'pointer',
+                              opacity: !!voteStatus || walletInfo?.locked ? 0.7 : 1,
                             }}
                           >
                             {isVoting && voteStatus?.direction === 'no' ? 'Voting…' : 'Vote No'}
@@ -865,7 +867,7 @@ export function GovernanceCard({
                       <button
                         type="button"
                         onClick={() => handleVote(proposal.id, 'yes')}
-                        disabled={!!voteStatus || walletInfo.locked}
+                        disabled={!!voteStatus || walletInfo?.locked}
                         style={{
                           padding: 'var(--space-1) var(--space-2)',
                           borderRadius: 'var(--radius-sm)',
@@ -874,8 +876,8 @@ export function GovernanceCard({
                           color: 'white',
                           fontSize: 'var(--text-xs)',
                           fontWeight: 'var(--font-medium)',
-                          cursor: !!voteStatus || walletInfo.locked ? 'default' : 'pointer',
-                          opacity: !!voteStatus || walletInfo.locked ? 0.7 : 1,
+                          cursor: !!voteStatus || walletInfo?.locked ? 'default' : 'pointer',
+                          opacity: !!voteStatus || walletInfo?.locked ? 0.7 : 1,
                         }}
                       >
                         {isVoting && voteStatus?.direction === 'yes' ? 'Voting…' : 'Vote Yes'}
@@ -883,7 +885,7 @@ export function GovernanceCard({
                       <button
                         type="button"
                         onClick={() => handleVote(proposal.id, 'no')}
-                        disabled={!!voteStatus || walletInfo.locked}
+                        disabled={!!voteStatus || walletInfo?.locked}
                         style={{
                           padding: 'var(--space-1) var(--space-2)',
                           borderRadius: 'var(--radius-sm)',
@@ -892,8 +894,8 @@ export function GovernanceCard({
                           color: 'white',
                           fontSize: 'var(--text-xs)',
                           fontWeight: 'var(--font-medium)',
-                          cursor: !!voteStatus || walletInfo.locked ? 'default' : 'pointer',
-                          opacity: !!voteStatus || walletInfo.locked ? 0.7 : 1,
+                          cursor: !!voteStatus || walletInfo?.locked ? 'default' : 'pointer',
+                          opacity: !!voteStatus || walletInfo?.locked ? 0.7 : 1,
                         }}
                       >
                         {isVoting && voteStatus?.direction === 'no' ? 'Voting…' : 'Vote No'}
@@ -1043,7 +1045,8 @@ export function GovernanceCard({
             </button>
             <button
               type="submit"
-              disabled={isSubmittingProposal || !walletInfo || walletInfo.locked}
+              disabled={isSubmittingProposal || !walletInfo || walletInfo?.locked}
+
               style={{
                 padding: 'var(--space-2) var(--space-3)',
                 borderRadius: 'var(--radius-md)',
@@ -1052,8 +1055,9 @@ export function GovernanceCard({
                 color: 'white',
                 fontSize: 'var(--text-sm)',
                 fontWeight: 'var(--font-medium)',
-                cursor: isSubmittingProposal || !walletInfo || walletInfo.locked ? 'default' : 'pointer',
-                opacity: isSubmittingProposal || !walletInfo || walletInfo.locked ? 0.7 : 1,
+                cursor: isSubmittingProposal || !walletInfo || walletInfo?.locked ? 'default' : 'pointer',
+                opacity: isSubmittingProposal || !walletInfo || walletInfo?.locked ? 0.7 : 1,
+
               }}
             >
               {isSubmittingProposal ? 'Submitting…' : 'Submit Proposal'}
