@@ -1,3 +1,4 @@
+import { ReactNode, useEffect, useState } from 'react';
 import { GovernanceHookResult } from '../hooks/useGovernance';
 import { Card } from './Card';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -8,7 +9,70 @@ interface GovernanceCardProps {
   governance: GovernanceHookResult;
 }
 
+type ProposalArgument = GovernanceHookResult['proposals'][number]['arg'];
+
+function renderProposalArgument(arg: ProposalArgument): ReactNode {
+  if (arg === null || typeof arg === 'undefined') {
+    return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+  }
+
+  if (typeof arg === 'string') {
+    const trimmed = arg.trim();
+    if (!trimmed) {
+      return <span style={{ color: 'var(--text-muted)' }}>—</span>;
+    }
+    return <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{trimmed}</span>;
+  }
+
+  if (typeof arg === 'number' || typeof arg === 'boolean') {
+    return <span style={{ fontFamily: 'var(--font-mono)' }}>{String(arg)}</span>;
+  }
+
+  if (Array.isArray(arg) || (typeof arg === 'object' && arg !== null)) {
+    return (
+      <pre
+        style={{
+          margin: 0,
+          padding: 'var(--space-2)',
+          borderRadius: 'var(--radius-sm)',
+          background: 'var(--bg-tertiary)',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          fontFamily: 'var(--font-mono)',
+          fontSize: 'var(--text-xs)',
+        }}
+      >
+        {JSON.stringify(arg, null, 2)}
+      </pre>
+    );
+  }
+
+  return <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{String(arg)}</span>;
+}
+
 export function GovernanceCard({ isValidator, governance }: GovernanceCardProps) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    const updateIsMobile = () => setIsMobile(mediaQuery.matches);
+
+    updateIsMobile();
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', updateIsMobile);
+    } else {
+      mediaQuery.addListener(updateIsMobile);
+    }
+
+    return () => {
+      if (typeof mediaQuery.removeEventListener === 'function') {
+        mediaQuery.removeEventListener('change', updateIsMobile);
+      } else {
+        mediaQuery.removeListener(updateIsMobile);
+      }
+    };
+  }, []);
+
   if (!isValidator) {
     return (
       <Card title="Governance Votes">
@@ -141,7 +205,7 @@ export function GovernanceCard({ isValidator, governance }: GovernanceCardProps)
         </p>
       ) : null}
 
-      {proposals.length > 0 && (
+      {proposals.length > 0 && !isMobile && (
         <div style={{
           overflowX: 'auto',
           borderRadius: 'var(--radius-md)',
@@ -179,7 +243,9 @@ export function GovernanceCard({ isValidator, governance }: GovernanceCardProps)
                 >
                   <td style={{ padding: 'var(--space-3)', fontFamily: 'var(--font-mono)' }}>{proposal.id}</td>
                   <td style={{ padding: 'var(--space-3)', textTransform: 'capitalize' }}>{proposal.type.replace(/_/g, ' ')}</td>
-                  <td style={{ padding: 'var(--space-3)' }}>{proposal.arg ?? '—'}</td>
+                  <td style={{ padding: 'var(--space-3)', verticalAlign: 'top' }}>
+                    {renderProposalArgument(proposal.arg)}
+                  </td>
                   <td style={{ padding: 'var(--space-3)', color: 'var(--color-success)', fontWeight: 'var(--font-medium)' }}>{proposal.yes}</td>
                   <td style={{ padding: 'var(--space-3)', color: 'var(--color-warning)', fontWeight: 'var(--font-medium)' }}>{proposal.no}</td>
                   <td style={{ padding: 'var(--space-3)' }}>{proposal.finalized ? 'Yes' : 'No'}</td>
@@ -212,6 +278,134 @@ export function GovernanceCard({ isValidator, governance }: GovernanceCardProps)
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {proposals.length > 0 && isMobile && (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--space-3)',
+          marginBottom: 'var(--space-4)',
+        }}>
+          {proposals.map((proposal) => (
+            <div
+              key={proposal.id}
+              style={{
+                border: '1px solid var(--border-primary)',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-secondary)',
+                padding: 'var(--space-3)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--space-2)',
+              }}
+            >
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 'var(--space-2)',
+              }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-medium)' }}>
+                  #{proposal.id}
+                </span>
+                <span style={{
+                  textTransform: 'capitalize',
+                  color: 'var(--text-secondary)',
+                  fontWeight: 'var(--font-medium)',
+                }}>
+                  {proposal.type.replace(/_/g, ' ')}
+                </span>
+              </div>
+
+              <div>
+                <span style={{
+                  display: 'block',
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--text-muted)',
+                  marginBottom: 'var(--space-1)',
+                }}>
+                  Argument
+                </span>
+                <div style={{ fontSize: 'var(--text-sm)' }}>
+                  {renderProposalArgument(proposal.arg)}
+                </div>
+              </div>
+
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                gap: 'var(--space-2)',
+              }}>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 'var(--space-1)',
+                  alignItems: 'flex-start',
+                }}>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Yes</span>
+                  <span style={{ color: 'var(--color-success)', fontWeight: 'var(--font-medium)' }}>
+                    {proposal.yes}
+                  </span>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 'var(--space-1)',
+                  alignItems: 'flex-start',
+                }}>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>No</span>
+                  <span style={{ color: 'var(--color-warning)', fontWeight: 'var(--font-medium)' }}>
+                    {proposal.no}
+                  </span>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 'var(--space-1)',
+                  alignItems: 'flex-start',
+                }}>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Finalized</span>
+                  <span>{proposal.finalized ? 'Yes' : 'No'}</span>
+                </div>
+              </div>
+
+              <div>
+                <span style={{
+                  display: 'block',
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--text-muted)',
+                  marginBottom: 'var(--space-1)',
+                }}>
+                  Voters
+                </span>
+                {proposal.voters.length === 0 ? (
+                  <span style={{ color: 'var(--text-muted)' }}>No votes yet</span>
+                ) : (
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 'var(--space-1)',
+                  }}>
+                    {proposal.voters.map((voter) => (
+                      <span
+                        key={voter}
+                        style={{
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: 'var(--text-xs)',
+                          wordBreak: 'break-all',
+                          color: 'var(--text-secondary)',
+                        }}
+                      >
+                        {voter}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
