@@ -99,6 +99,24 @@ export function GovernanceCard({
   walletError,
   clearWalletError,
 }: GovernanceCardProps) {
+  if (!isValidator) {
+    return (
+      <Card title="Governance Votes">
+        <p
+          style={{
+            margin: 0,
+            color: 'var(--text-muted)',
+            fontSize: 'var(--text-sm)',
+            lineHeight: 1.6,
+          }}
+        >
+          This node is not currently participating as a validator. Governance data is
+          only available for validator nodes.
+        </p>
+      </Card>
+    );
+  }
+
   const [isMobile, setIsMobile] = useState(false);
   const [proposalType, setProposalType] = useState('');
   const [proposalArgument, setProposalArgument] = useState('');
@@ -253,22 +271,6 @@ export function GovernanceCard({
     },
     [clearWalletError, refresh, walletInfo],
   );
-
-  if (!isValidator) {
-    return (
-      <Card title="Governance Votes">
-        <p style={{
-          margin: 0,
-          color: 'var(--text-muted)',
-          fontSize: 'var(--text-sm)',
-          lineHeight: 1.6,
-        }}>
-          This node is not currently participating as a validator. Governance data is
-          only available for validator nodes.
-        </p>
-      </Card>
-    );
-  }
 
   const handlePrevious = () => {
     if (page > 1) {
