@@ -243,7 +243,12 @@ export function GovernanceCard({ isValidator, governance }: GovernanceCardProps)
                 >
                   <td style={{ padding: 'var(--space-3)', fontFamily: 'var(--font-mono)' }}>{proposal.id}</td>
                   <td style={{ padding: 'var(--space-3)', textTransform: 'capitalize' }}>{proposal.type.replace(/_/g, ' ')}</td>
-                  <td style={{ padding: 'var(--space-3)', verticalAlign: 'top' }}>
+                  <td
+                    style={{
+                      padding: 'var(--space-3)',
+                      verticalAlign: 'middle',
+                    }}
+                  >
                     {renderProposalArgument(proposal.arg)}
                   </td>
                   <td style={{ padding: 'var(--space-3)', color: 'var(--color-success)', fontWeight: 'var(--font-medium)' }}>{proposal.yes}</td>
