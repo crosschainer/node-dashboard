@@ -1,8 +1,9 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { GovernanceHookResult } from '../hooks/useGovernance';
 import { Card } from './Card';
 import { LoadingSpinner } from './LoadingSpinner';
 import { RefreshIcon } from './Icons';
+import XianWalletUtils from '../services/xianWalletUtils';
 
 interface GovernanceCardProps {
   isValidator: boolean;
@@ -10,6 +11,13 @@ interface GovernanceCardProps {
 }
 
 type ProposalArgument = GovernanceHookResult['proposals'][number]['arg'];
+
+interface ConnectedWalletInfo {
+  address: string;
+  truncatedAddress?: string;
+  locked?: boolean;
+  chainId?: string;
+}
 
 function renderProposalArgument(arg: ProposalArgument): ReactNode {
   if (arg === null || typeof arg === 'undefined') {
@@ -50,8 +58,62 @@ function renderProposalArgument(arg: ProposalArgument): ReactNode {
   return <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{String(arg)}</span>;
 }
 
+function parseProposalArgument(value: string): unknown {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+    try {
+      return JSON.parse(trimmed);
+    } catch (error) {
+      console.warn('Failed to parse proposal argument as JSON', error);
+    }
+  }
+
+  if (trimmed === 'true') {
+    return true;
+  }
+
+  if (trimmed === 'false') {
+    return false;
+  }
+
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+    const numeric = Number(trimmed);
+    if (!Number.isNaN(numeric)) {
+      return numeric;
+    }
+  }
+
+  return trimmed;
+}
+
 export function GovernanceCard({ isValidator, governance }: GovernanceCardProps) {
   const [isMobile, setIsMobile] = useState(false);
+  const [walletInfo, setWalletInfo] = useState<ConnectedWalletInfo | null>(null);
+  const [walletError, setWalletError] = useState<string | null>(null);
+  const [isConnectingWallet, setIsConnectingWallet] = useState(false);
+  const [proposalType, setProposalType] = useState('');
+  const [proposalArgument, setProposalArgument] = useState('');
+  const [proposalError, setProposalError] = useState<string | null>(null);
+  const [proposalSuccess, setProposalSuccess] = useState<string | null>(null);
+  const [isSubmittingProposal, setIsSubmittingProposal] = useState(false);
+  const [voteStatus, setVoteStatus] = useState<{ proposalId: number; direction: 'yes' | 'no' } | null>(null);
+  const [voteMessage, setVoteMessage] = useState<string | null>(null);
+  const [voteError, setVoteError] = useState<string | null>(null);
+
+  const {
+    totalProposals,
+    proposals,
+    page,
+    totalPages,
+    isLoading,
+    error,
+    goToPage,
+    refresh,
+  } = governance;
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 768px)');
@@ -73,6 +135,106 @@ export function GovernanceCard({ isValidator, governance }: GovernanceCardProps)
     };
   }, []);
 
+  const normalizedWalletAddress = useMemo(
+    () => walletInfo?.address?.toLowerCase() ?? null,
+    [walletInfo],
+  );
+
+  const handleConnectWallet = useCallback(async () => {
+    setWalletError(null);
+    setVoteMessage(null);
+    setVoteError(null);
+    setProposalSuccess(null);
+
+    try {
+      setIsConnectingWallet(true);
+      const info = await XianWalletUtils.requestWalletInfo();
+      setWalletInfo(info);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to connect wallet';
+      setWalletError(message);
+    } finally {
+      setIsConnectingWallet(false);
+    }
+  }, []);
+
+  const handleSubmitProposal = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      setProposalError(null);
+      setProposalSuccess(null);
+
+      if (!walletInfo) {
+        setProposalError('Connect your wallet before creating a proposal.');
+        return;
+      }
+
+      const trimmedType = proposalType.trim();
+      if (!trimmedType) {
+        setProposalError('Proposal type is required.');
+        return;
+      }
+
+      const parsedArgument = parseProposalArgument(proposalArgument);
+
+      try {
+        setIsSubmittingProposal(true);
+        const result = await XianWalletUtils.sendTransaction('masternodes', 'propose_vote', {
+          type_of_vote: trimmedType,
+          arg: parsedArgument,
+        });
+
+        if (result && 'errors' in result && result.errors) {
+          throw new Error(Array.isArray(result.errors) ? result.errors.join(', ') : String(result.errors));
+        }
+
+        setProposalType('');
+        setProposalArgument('');
+        setProposalSuccess('Proposal submitted successfully.');
+        refresh();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to submit proposal';
+        setProposalError(message);
+      } finally {
+        setIsSubmittingProposal(false);
+      }
+    },
+    [proposalArgument, proposalType, refresh, walletInfo],
+  );
+
+  const handleVote = useCallback(
+    async (proposalId: number, direction: 'yes' | 'no') => {
+      setVoteError(null);
+      setVoteMessage(null);
+
+      if (!walletInfo) {
+        setVoteError('Connect your wallet before voting.');
+        return;
+      }
+
+      try {
+        setVoteStatus({ proposalId, direction });
+        const result = await XianWalletUtils.sendTransaction('masternodes', 'vote', {
+          proposal_id: proposalId,
+          vote: direction,
+        });
+
+        if (result && 'errors' in result && result.errors) {
+          throw new Error(Array.isArray(result.errors) ? result.errors.join(', ') : String(result.errors));
+        }
+
+        setVoteMessage(`Vote submitted for proposal #${proposalId}.`);
+        refresh();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to submit vote';
+        setVoteError(message);
+      } finally {
+        setVoteStatus(null);
+      }
+    },
+    [refresh, walletInfo],
+  );
+
   if (!isValidator) {
     return (
       <Card title="Governance Votes">
@@ -89,17 +251,6 @@ export function GovernanceCard({ isValidator, governance }: GovernanceCardProps)
     );
   }
 
-  const {
-    totalProposals,
-    proposals,
-    page,
-    totalPages,
-    isLoading,
-    error,
-    goToPage,
-    refresh,
-  } = governance;
-
   const handlePrevious = () => {
     if (page > 1) {
       goToPage(page - 1);
@@ -112,7 +263,6 @@ export function GovernanceCard({ isValidator, governance }: GovernanceCardProps)
     }
   };
 
-
   const showingFrom = proposals.length > 0
     ? proposals[0].id
     : 0;
@@ -122,6 +272,148 @@ export function GovernanceCard({ isValidator, governance }: GovernanceCardProps)
 
   return (
     <Card title="Governance Votes">
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-3)',
+        marginBottom: 'var(--space-4)',
+      }}>
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--space-2)',
+            padding: 'var(--space-3)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border-primary)',
+            background: 'var(--bg-secondary)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', fontWeight: 'var(--font-medium)' }}>
+                Wallet
+              </span>
+              {walletInfo ? (
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-sm)' }}>
+                  {walletInfo.truncatedAddress ?? walletInfo.address}
+                </span>
+              ) : (
+                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>No wallet connected</span>
+              )}
+              {walletInfo?.locked ? (
+                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-warning)' }}>
+                  Wallet is locked. Please unlock it before signing transactions.
+                </span>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={handleConnectWallet}
+              disabled={isConnectingWallet}
+              style={{
+                padding: 'var(--space-2) var(--space-3)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-primary)',
+                background: 'var(--bg-tertiary)',
+                color: 'var(--text-secondary)',
+                fontSize: 'var(--text-sm)',
+                fontWeight: 'var(--font-medium)',
+                cursor: isConnectingWallet ? 'default' : 'pointer',
+              }}
+            >
+              {isConnectingWallet ? 'Connecting…' : walletInfo ? 'Reconnect Wallet' : 'Connect Wallet'}
+            </button>
+          </div>
+          {walletError ? (
+            <span style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)' }}>{walletError}</span>
+          ) : null}
+          {voteMessage ? (
+            <span style={{ color: 'var(--color-success)', fontSize: 'var(--text-sm)' }}>{voteMessage}</span>
+          ) : null}
+          {voteError ? (
+            <span style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)' }}>{voteError}</span>
+          ) : null}
+        </div>
+
+        <form
+          onSubmit={handleSubmitProposal}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'var(--space-2)',
+            padding: 'var(--space-3)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border-primary)',
+            background: 'var(--bg-secondary)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+            <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', color: 'var(--text-secondary)' }}>
+              Create Proposal
+            </span>
+            <button
+              type="submit"
+              disabled={isSubmittingProposal || !walletInfo || walletInfo.locked}
+              style={{
+                padding: 'var(--space-2) var(--space-3)',
+                borderRadius: 'var(--radius-md)',
+                border: 'none',
+                background: 'var(--primary-gradient)',
+                color: 'white',
+                fontSize: 'var(--text-sm)',
+                fontWeight: 'var(--font-medium)',
+                cursor: isSubmittingProposal || !walletInfo || walletInfo.locked ? 'default' : 'pointer',
+                opacity: isSubmittingProposal || !walletInfo || walletInfo.locked ? 0.7 : 1,
+              }}
+            >
+              {isSubmittingProposal ? 'Submitting…' : 'Submit Proposal'}
+            </button>
+          </div>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Proposal Type</span>
+            <input
+              type="text"
+              value={proposalType}
+              onChange={(event) => setProposalType(event.target.value)}
+              placeholder="e.g. add_member"
+              style={{
+                padding: 'var(--space-2)',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-primary)',
+                background: 'var(--bg-tertiary)',
+                color: 'var(--text-primary)',
+                fontSize: 'var(--text-sm)',
+              }}
+            />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Proposal Argument</span>
+            <textarea
+              value={proposalArgument}
+              onChange={(event) => setProposalArgument(event.target.value)}
+              placeholder="Argument value (text, number, or JSON)"
+              rows={3}
+              style={{
+                padding: 'var(--space-2)',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border-primary)',
+                background: 'var(--bg-tertiary)',
+                color: 'var(--text-primary)',
+                fontSize: 'var(--text-sm)',
+                resize: 'vertical',
+              }}
+            />
+          </label>
+          {proposalError ? (
+            <span style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)' }}>{proposalError}</span>
+          ) : null}
+          {proposalSuccess ? (
+            <span style={{ color: 'var(--color-success)', fontSize: 'var(--text-sm)' }}>{proposalSuccess}</span>
+          ) : null}
+        </form>
+      </div>
+
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -230,57 +522,113 @@ export function GovernanceCard({ isValidator, governance }: GovernanceCardProps)
                 <th style={{ padding: 'var(--space-3)' }}>No</th>
                 <th style={{ padding: 'var(--space-3)' }}>Finalized</th>
                 <th style={{ padding: 'var(--space-3)' }}>Voters</th>
+                <th style={{ padding: 'var(--space-3)' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {proposals.map((proposal) => (
-                <tr
-                  key={proposal.id}
-                  style={{
-                    borderTop: '1px solid var(--border-primary)',
-                    background: 'var(--bg-secondary)',
-                  }}
-                >
-                  <td style={{ padding: 'var(--space-3)', fontFamily: 'var(--font-mono)' }}>{proposal.id}</td>
-                  <td style={{ padding: 'var(--space-3)', textTransform: 'capitalize' }}>{proposal.type.replace(/_/g, ' ')}</td>
-                  <td
+              {proposals.map((proposal) => {
+                const hasVoted = normalizedWalletAddress
+                  ? proposal.voters.some((voter) => voter.toLowerCase() === normalizedWalletAddress)
+                  : false;
+                const isVoting = voteStatus?.proposalId === proposal.id;
+
+                return (
+                  <tr
+                    key={proposal.id}
                     style={{
-                      padding: 'var(--space-3)',
-                      verticalAlign: 'middle',
+                      borderTop: '1px solid var(--border-primary)',
+                      background: 'var(--bg-secondary)',
                     }}
                   >
-                    {renderProposalArgument(proposal.arg)}
-                  </td>
-                  <td style={{ padding: 'var(--space-3)', color: 'var(--color-success)', fontWeight: 'var(--font-medium)' }}>{proposal.yes}</td>
-                  <td style={{ padding: 'var(--space-3)', color: 'var(--color-warning)', fontWeight: 'var(--font-medium)' }}>{proposal.no}</td>
-                  <td style={{ padding: 'var(--space-3)' }}>{proposal.finalized ? 'Yes' : 'No'}</td>
-                  <td style={{ padding: 'var(--space-3)' }}>
-                    <div style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 'var(--space-1)',
-                    }}>
-                      {proposal.voters.length === 0 ? (
-                        <span style={{ color: 'var(--text-muted)' }}>No votes yet</span>
+                    <td style={{ padding: 'var(--space-3)', fontFamily: 'var(--font-mono)' }}>{proposal.id}</td>
+                    <td style={{ padding: 'var(--space-3)', textTransform: 'capitalize' }}>{proposal.type.replace(/_/g, ' ')}</td>
+                    <td
+                      style={{
+                        padding: 'var(--space-3)',
+                        verticalAlign: 'middle',
+                      }}
+                    >
+                      {renderProposalArgument(proposal.arg)}
+                    </td>
+                    <td style={{ padding: 'var(--space-3)', color: 'var(--color-success)', fontWeight: 'var(--font-medium)' }}>{proposal.yes}</td>
+                    <td style={{ padding: 'var(--space-3)', color: 'var(--color-warning)', fontWeight: 'var(--font-medium)' }}>{proposal.no}</td>
+                    <td style={{ padding: 'var(--space-3)' }}>{proposal.finalized ? 'Yes' : 'No'}</td>
+                    <td style={{ padding: 'var(--space-3)' }}>
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 'var(--space-1)',
+                      }}>
+                        {proposal.voters.length === 0 ? (
+                          <span style={{ color: 'var(--text-muted)' }}>No votes yet</span>
+                        ) : (
+                          proposal.voters.map((voter) => (
+                            <span
+                              key={voter}
+                              style={{
+                                fontFamily: 'var(--font-mono)',
+                                fontSize: 'var(--text-xs)',
+                                wordBreak: 'break-all',
+                                color: 'var(--text-secondary)',
+                              }}
+                            >
+                              {voter}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    </td>
+                    <td style={{ padding: 'var(--space-3)' }}>
+                      {proposal.finalized ? (
+                        <span style={{ color: 'var(--text-muted)' }}>Finalized</span>
+                      ) : !walletInfo ? (
+                        <span style={{ color: 'var(--text-muted)' }}>Connect wallet</span>
+                      ) : hasVoted ? (
+                        <span style={{ color: 'var(--text-secondary)' }}>Already voted</span>
                       ) : (
-                        proposal.voters.map((voter) => (
-                          <span
-                            key={voter}
+                        <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleVote(proposal.id, 'yes')}
+                            disabled={!!voteStatus || walletInfo.locked}
                             style={{
-                              fontFamily: 'var(--font-mono)',
+                              padding: 'var(--space-1) var(--space-2)',
+                              borderRadius: 'var(--radius-sm)',
+                              border: 'none',
+                              background: 'var(--color-success)',
+                              color: 'white',
                               fontSize: 'var(--text-xs)',
-                              wordBreak: 'break-all',
-                              color: 'var(--text-secondary)',
+                              fontWeight: 'var(--font-medium)',
+                              cursor: !!voteStatus || walletInfo.locked ? 'default' : 'pointer',
+                              opacity: !!voteStatus || walletInfo.locked ? 0.7 : 1,
                             }}
                           >
-                            {voter}
-                          </span>
-                        ))
+                            {isVoting && voteStatus?.direction === 'yes' ? 'Voting…' : 'Vote Yes'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleVote(proposal.id, 'no')}
+                            disabled={!!voteStatus || walletInfo.locked}
+                            style={{
+                              padding: 'var(--space-1) var(--space-2)',
+                              borderRadius: 'var(--radius-sm)',
+                              border: 'none',
+                              background: 'var(--color-warning)',
+                              color: 'white',
+                              fontSize: 'var(--text-xs)',
+                              fontWeight: 'var(--font-medium)',
+                              cursor: !!voteStatus || walletInfo.locked ? 'default' : 'pointer',
+                              opacity: !!voteStatus || walletInfo.locked ? 0.7 : 1,
+                            }}
+                          >
+                            {isVoting && voteStatus?.direction === 'no' ? 'Voting…' : 'Vote No'}
+                          </button>
+                        </div>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -293,124 +641,187 @@ export function GovernanceCard({ isValidator, governance }: GovernanceCardProps)
           gap: 'var(--space-3)',
           marginBottom: 'var(--space-4)',
         }}>
-          {proposals.map((proposal) => (
-            <div
-              key={proposal.id}
-              style={{
-                border: '1px solid var(--border-primary)',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--bg-secondary)',
-                padding: 'var(--space-3)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 'var(--space-2)',
-              }}
-            >
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: 'var(--space-2)',
-              }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-medium)' }}>
-                  #{proposal.id}
-                </span>
-                <span style={{
-                  textTransform: 'capitalize',
-                  color: 'var(--text-secondary)',
-                  fontWeight: 'var(--font-medium)',
-                }}>
-                  {proposal.type.replace(/_/g, ' ')}
-                </span>
-              </div>
+          {proposals.map((proposal) => {
+            const hasVoted = normalizedWalletAddress
+              ? proposal.voters.some((voter) => voter.toLowerCase() === normalizedWalletAddress)
+              : false;
+            const isVoting = voteStatus?.proposalId === proposal.id;
 
-              <div>
-                <span style={{
-                  display: 'block',
-                  fontSize: 'var(--text-xs)',
-                  color: 'var(--text-muted)',
-                  marginBottom: 'var(--space-1)',
-                }}>
-                  Argument
-                </span>
-                <div style={{ fontSize: 'var(--text-sm)' }}>
-                  {renderProposalArgument(proposal.arg)}
-                </div>
-              </div>
-
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                gap: 'var(--space-2)',
-              }}>
-                <div style={{
+            return (
+              <div
+                key={proposal.id}
+                style={{
+                  border: '1px solid var(--border-primary)',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-secondary)',
+                  padding: 'var(--space-3)',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 'var(--space-1)',
-                  alignItems: 'flex-start',
+                  gap: 'var(--space-2)',
+                }}
+              >
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 'var(--space-2)',
                 }}>
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Yes</span>
-                  <span style={{ color: 'var(--color-success)', fontWeight: 'var(--font-medium)' }}>
-                    {proposal.yes}
+                  <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 'var(--font-medium)' }}>
+                    #{proposal.id}
+                  </span>
+                  <span style={{
+                    textTransform: 'capitalize',
+                    color: 'var(--text-secondary)',
+                    fontWeight: 'var(--font-medium)',
+                  }}>
+                    {proposal.type.replace(/_/g, ' ')}
                   </span>
                 </div>
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-1)',
-                  alignItems: 'flex-start',
-                }}>
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>No</span>
-                  <span style={{ color: 'var(--color-warning)', fontWeight: 'var(--font-medium)' }}>
-                    {proposal.no}
-                  </span>
-                </div>
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-1)',
-                  alignItems: 'flex-start',
-                }}>
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Finalized</span>
-                  <span>{proposal.finalized ? 'Yes' : 'No'}</span>
-                </div>
-              </div>
 
-              <div>
-                <span style={{
-                  display: 'block',
-                  fontSize: 'var(--text-xs)',
-                  color: 'var(--text-muted)',
-                  marginBottom: 'var(--space-1)',
+                <div>
+                  <span style={{
+                    display: 'block',
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--text-muted)',
+                    marginBottom: 'var(--space-1)',
+                  }}>
+                    Argument
+                  </span>
+                  <div style={{ fontSize: 'var(--text-sm)' }}>
+                    {renderProposalArgument(proposal.arg)}
+                  </div>
+                </div>
+
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                  gap: 'var(--space-2)',
                 }}>
-                  Voters
-                </span>
-                {proposal.voters.length === 0 ? (
-                  <span style={{ color: 'var(--text-muted)' }}>No votes yet</span>
-                ) : (
                   <div style={{
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 'var(--space-1)',
+                    alignItems: 'flex-start',
                   }}>
-                    {proposal.voters.map((voter) => (
-                      <span
-                        key={voter}
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Yes</span>
+                    <span style={{ color: 'var(--color-success)', fontWeight: 'var(--font-medium)' }}>
+                      {proposal.yes}
+                    </span>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 'var(--space-1)',
+                    alignItems: 'flex-start',
+                  }}>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>No</span>
+                    <span style={{ color: 'var(--color-warning)', fontWeight: 'var(--font-medium)' }}>
+                      {proposal.no}
+                    </span>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 'var(--space-1)',
+                    alignItems: 'flex-start',
+                  }}>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Finalized</span>
+                    <span>{proposal.finalized ? 'Yes' : 'No'}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <span style={{
+                    display: 'block',
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--text-muted)',
+                    marginBottom: 'var(--space-1)',
+                  }}>
+                    Voters
+                  </span>
+                  {proposal.voters.length === 0 ? (
+                    <span style={{ color: 'var(--text-muted)' }}>No votes yet</span>
+                  ) : (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 'var(--space-1)',
+                    }}>
+                      {proposal.voters.map((voter) => (
+                        <span
+                          key={voter}
+                          style={{
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: 'var(--text-xs)',
+                            wordBreak: 'break-all',
+                            color: 'var(--text-secondary)',
+                          }}
+                        >
+                          {voter}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <span style={{
+                    display: 'block',
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--text-muted)',
+                    marginBottom: 'var(--space-1)',
+                  }}>
+                    Actions
+                  </span>
+                  {proposal.finalized ? (
+                    <span style={{ color: 'var(--text-muted)' }}>Finalized</span>
+                  ) : !walletInfo ? (
+                    <span style={{ color: 'var(--text-muted)' }}>Connect wallet</span>
+                  ) : hasVoted ? (
+                    <span style={{ color: 'var(--text-secondary)' }}>Already voted</span>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                      <button
+                        type="button"
+                        onClick={() => handleVote(proposal.id, 'yes')}
+                        disabled={!!voteStatus || walletInfo.locked}
                         style={{
-                          fontFamily: 'var(--font-mono)',
+                          padding: 'var(--space-1) var(--space-2)',
+                          borderRadius: 'var(--radius-sm)',
+                          border: 'none',
+                          background: 'var(--color-success)',
+                          color: 'white',
                           fontSize: 'var(--text-xs)',
-                          wordBreak: 'break-all',
-                          color: 'var(--text-secondary)',
+                          fontWeight: 'var(--font-medium)',
+                          cursor: !!voteStatus || walletInfo.locked ? 'default' : 'pointer',
+                          opacity: !!voteStatus || walletInfo.locked ? 0.7 : 1,
                         }}
                       >
-                        {voter}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                        {isVoting && voteStatus?.direction === 'yes' ? 'Voting…' : 'Vote Yes'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleVote(proposal.id, 'no')}
+                        disabled={!!voteStatus || walletInfo.locked}
+                        style={{
+                          padding: 'var(--space-1) var(--space-2)',
+                          borderRadius: 'var(--radius-sm)',
+                          border: 'none',
+                          background: 'var(--color-warning)',
+                          color: 'white',
+                          fontSize: 'var(--text-xs)',
+                          fontWeight: 'var(--font-medium)',
+                          cursor: !!voteStatus || walletInfo.locked ? 'default' : 'pointer',
+                          opacity: !!voteStatus || walletInfo.locked ? 0.7 : 1,
+                        }}
+                      >
+                        {isVoting && voteStatus?.direction === 'no' ? 'Voting…' : 'Vote No'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
