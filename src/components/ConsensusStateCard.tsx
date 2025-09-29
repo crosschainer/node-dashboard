@@ -263,7 +263,7 @@ const renderVoteProgress = (
           style={{
             width: `${progressRatio * 100}%`,
             height: '100%',
-            background: label.includes('Precommit') ? 'var(--color-accent)' : 'var(--color-primary)',
+            background: 'var(--color-accent)',
             transition: 'width 0.3s ease',
           }}
         />
@@ -384,10 +384,7 @@ export function ConsensusStateCard({ data }: ConsensusStateCardProps) {
       label: 'Height',
       value: roundHeight !== null ? roundHeight.toLocaleString() : 'Unknown',
     },
-    {
-      label: 'Round',
-      value: roundNumber !== null ? roundNumber.toLocaleString() : 'Unknown',
-    },
+    
     {
       label: 'Proposer',
       value: proposerAddress ? `${proposerAddress.slice(0, 8)}…${proposerAddress.slice(-6)}` : 'Unknown',
