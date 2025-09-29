@@ -97,9 +97,11 @@ export function useGovernance({
 
       const maxPage = Math.max(1, Math.ceil(total / pageSize));
       const safePage = Math.min(Math.max(1, requestedPage), maxPage);
-      const startId = (safePage - 1) * pageSize + 1;
-      const endId = Math.min(total, startId + pageSize - 1);
-      const proposals = await cometbftService.getGovernanceProposalsRange(startId, endId);
+      const endId = Math.max(1, total - (safePage - 1) * pageSize);
+      const startId = Math.max(1, endId - pageSize + 1);
+      const proposalsResponse = await cometbftService.getGovernanceProposalsRange(startId, endId);
+      const proposals = proposalsResponse.sort((a, b) => b.id - a.id);
+
 
       if (requestIdRef.current !== currentRequestId) {
         return;

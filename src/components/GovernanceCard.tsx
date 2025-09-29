@@ -29,7 +29,6 @@ export function GovernanceCard({ isValidator, governance }: GovernanceCardProps)
     totalProposals,
     proposals,
     page,
-    pageSize,
     totalPages,
     isLoading,
     error,
@@ -49,13 +48,12 @@ export function GovernanceCard({ isValidator, governance }: GovernanceCardProps)
     }
   };
 
-  const showingFrom = totalProposals && totalProposals > 0
-    ? (page - 1) * pageSize + 1
+
+  const showingFrom = proposals.length > 0
+    ? proposals[0].id
     : 0;
-  const showingTo = totalProposals && totalProposals > 0
-    ? (proposals.length > 0
-      ? Math.min(totalProposals, showingFrom + proposals.length - 1)
-      : showingFrom)
+  const showingTo = proposals.length > 0
+    ? proposals[proposals.length - 1].id
     : 0;
 
   return (
@@ -76,7 +74,8 @@ export function GovernanceCard({ isValidator, governance }: GovernanceCardProps)
           }}>
             Total proposals: {totalProposals ?? '—'}
           </p>
-          {totalProposals && totalProposals > 0 && (
+          {totalProposals && totalProposals > 0 && proposals.length > 0 && (
+
             <p style={{
               margin: 0,
               fontSize: 'var(--text-xs)',
