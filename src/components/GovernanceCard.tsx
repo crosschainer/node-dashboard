@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { GovernanceHookResult } from '../hooks/useGovernance';
 import { Card } from './Card';
 import { LoadingSpinner } from './LoadingSpinner';
@@ -18,6 +18,19 @@ interface GovernanceCardProps {
 }
 
 type ProposalArgument = GovernanceHookResult['proposals'][number]['arg'];
+
+const primaryActionButtonStyle: CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 'var(--space-2)',
+  padding: 'var(--space-2) var(--space-3)',
+  borderRadius: 'var(--radius-md)',
+  border: 'none',
+  fontSize: 'var(--text-sm)',
+  fontWeight: 'var(--font-medium)',
+  transition: 'transform var(--transition-normal), box-shadow var(--transition-normal), opacity var(--transition-normal)',
+};
 
 function renderProposalArgument(arg: ProposalArgument): ReactNode {
   if (arg === null || typeof arg === 'undefined') {
@@ -163,6 +176,24 @@ export function GovernanceCard({
     () => walletInfo?.address?.toLowerCase() ?? null,
     [walletInfo],
   );
+
+  const connectButtonStyle: CSSProperties = {
+    ...primaryActionButtonStyle,
+    background: isConnectingWallet ? 'var(--bg-tertiary)' : 'var(--primary-gradient)',
+    color: isConnectingWallet ? 'var(--text-muted)' : 'white',
+    cursor: isConnectingWallet ? 'default' : 'pointer',
+    boxShadow: isConnectingWallet ? 'none' : 'var(--shadow-glow)',
+    opacity: isConnectingWallet ? 0.8 : 1,
+  };
+
+  const refreshButtonStyle: CSSProperties = {
+    ...primaryActionButtonStyle,
+    background: isLoading ? 'var(--bg-tertiary)' : 'var(--primary-gradient)',
+    color: isLoading ? 'var(--text-muted)' : 'white',
+    cursor: isLoading ? 'default' : 'pointer',
+    boxShadow: isLoading ? 'none' : 'var(--shadow-glow)',
+    opacity: isLoading ? 0.8 : 1,
+  };
 
   const openProposalModal = useCallback(() => {
     setProposalError(null);
@@ -331,21 +362,20 @@ export function GovernanceCard({
             </span>
           ) : null}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            gap: 'var(--space-2)',
+            flexWrap: 'wrap',
+          }}
+        >
           <button
             type="button"
             onClick={handleConnectWallet}
             disabled={isConnectingWallet}
-            style={{
-              padding: 'var(--space-2) var(--space-3)',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-primary)',
-              background: 'var(--bg-tertiary)',
-              color: 'var(--text-secondary)',
-              fontSize: 'var(--text-sm)',
-              fontWeight: 'var(--font-medium)',
-              cursor: isConnectingWallet ? 'default' : 'pointer',
-            }}
+            style={connectButtonStyle}
           >
             {isConnectingWallet ? 'Connecting…' : walletInfo ? 'Reconnect Wallet' : 'Connect Wallet'}
           </button>
@@ -353,18 +383,13 @@ export function GovernanceCard({
             type="button"
             onClick={openProposalModal}
             disabled={!walletInfo || walletInfo?.locked}
-
             style={{
-              padding: 'var(--space-2) var(--space-3)',
-              borderRadius: 'var(--radius-md)',
-              border: 'none',
+              ...primaryActionButtonStyle,
               background: 'var(--primary-gradient)',
               color: 'white',
-              fontSize: 'var(--text-sm)',
-              fontWeight: 'var(--font-medium)',
               cursor: !walletInfo || walletInfo?.locked ? 'default' : 'pointer',
-              opacity: !walletInfo || walletInfo?.locked ? 0.7 : 1,
-
+              boxShadow: !walletInfo || walletInfo?.locked ? 'none' : 'var(--shadow-glow)',
+              opacity: !walletInfo || walletInfo?.locked ? 0.8 : 1,
             }}
           >
             New Proposal
@@ -373,19 +398,7 @@ export function GovernanceCard({
             type="button"
             onClick={refresh}
             disabled={isLoading}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-2)',
-              padding: 'var(--space-2) var(--space-3)',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-primary)',
-              background: 'var(--bg-tertiary)',
-              color: 'var(--text-secondary)',
-              fontSize: 'var(--text-sm)',
-              fontWeight: 'var(--font-medium)',
-              cursor: isLoading ? 'default' : 'pointer',
-            }}
+            style={refreshButtonStyle}
           >
             {isLoading ? (
               <>

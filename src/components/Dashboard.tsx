@@ -113,9 +113,12 @@ export function Dashboard() {
                 Current validator identity, peers and uptime
               </p>
             </div>
-            <div className="dashboard-grid dashboard-grid--single">
+            <div className="dashboard-grid">
               <div className="dashboard-item">
                 <NodeStatusCard data={data} />
+              </div>
+              <div className="dashboard-item">
+                <VersionInfoCard data={data} />
               </div>
             </div>
           </section>
@@ -183,9 +186,6 @@ export function Dashboard() {
               </p>
             </div>
             <div className="dashboard-grid">
-              <div className="dashboard-item">
-                <VersionInfoCard data={data} />
-              </div>
               <div className="dashboard-item dashboard-item--wide">
                 <GovernanceCard
                   isValidator={isValidator}
