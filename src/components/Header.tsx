@@ -1,7 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { LoadingSpinner } from './LoadingSpinner';
 import { cometbftService } from '../services/cometbft';
-import { RefreshIcon, CometBFTLogo } from './Icons';
+import { RefreshIcon, CometBFTLogo, PencilIcon } from './Icons';
 
 interface HeaderProps {
   isLoading: boolean;
@@ -135,9 +135,9 @@ export function Header({ isLoading, lastUpdated, onRefresh, onNodeUrlChange }: H
             </form>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <span style={{ 
-                fontSize: 'var(--text-sm)', 
-                color: 'var(--text-muted)' 
+              <span style={{
+                fontSize: 'var(--text-sm)',
+                color: 'var(--text-muted)'
               }}>
                 Node:
               </span>
@@ -153,13 +153,18 @@ export function Header({ isLoading, lastUpdated, onRefresh, onNodeUrlChange }: H
                   fontFamily: 'var(--font-mono)',
                   cursor: 'pointer',
                   transition: 'var(--transition-fast)',
-                  maxWidth: '200px',
+                  maxWidth: '220px',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
+                  whiteSpace: 'nowrap',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-2)'
                 }}
                 title={nodeUrl}
+                aria-label={`Edit node URL ${nodeUrl}`}
               >
+                <PencilIcon size={14} style={{ flexShrink: 0 }} />
                 {nodeUrl}
               </button>
             </div>

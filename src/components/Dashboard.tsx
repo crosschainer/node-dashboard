@@ -39,7 +39,8 @@ export function Dashboard() {
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
           gap: 'var(--space-6)',
-          alignItems: 'start'
+          alignItems: 'start',
+          gridAutoFlow: 'dense'
         }}
       >
         <div style={{ gridColumn: '1 / -1' }}>
