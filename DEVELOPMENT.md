@@ -15,14 +15,17 @@ This document provides comprehensive guidance for AI assistants working on the X
 node-dashboard/
 ├── src/
 │   ├── components/              # React components (main UI logic)
+│   │   ├── Card.tsx             # Shared card container styling
+│   │   ├── ConsensusStateCard.tsx  # Consensus height/round/step + vote health
 │   │   ├── Dashboard.tsx        # Main layout with responsive grid
 │   │   ├── Header.tsx           # Node URL config + refresh controls
-│   │   ├── cards/               # Monitoring cards (core functionality)
-│   │   │   ├── NodeStatusCard.tsx      # Sync status, block height
-│   │   │   ├── VersionInfoCard.tsx     # CometBFT + ABCI versions
-│   │   │   ├── NetworkInfoCard.tsx     # Network ID, peers, validator
-│   │   │   └── HealthAlertsCard.tsx    # Error detection, alerts
-│   │   └── LoadingSpinner.tsx   # Reusable loading component
+│   │   ├── HealthAlertsCard.tsx # Error detection, alerts
+│   │   ├── LoadingSpinner.tsx   # Reusable loading component
+│   │   ├── MempoolCard.tsx      # Mempool backlog overview
+│   │   ├── NetworkInfoCard.tsx  # Network ID, peers, validator
+│   │   ├── NodeStatusCard.tsx   # Sync status, block height
+│   │   ├── StatusIndicator.tsx  # Shared status pill
+│   │   └── VersionInfoCard.tsx  # CometBFT + ABCI versions
 │   ├── services/                # API layer (external communication)
 │   │   └── cometbft.ts          # CometBFT REST API client
 │   ├── types/                   # TypeScript definitions
@@ -87,6 +90,8 @@ const endpoints = {
   status: '/status',        // Node sync status
   abciInfo: '/abci_info',   // ABCI app version
   netInfo: '/net_info',     // Network information
+  unconfirmedTxs: '/unconfirmed_txs', // Mempool backlog
+  consensusState: '/dump_consensus_state', // Consensus progress
   health: '/health'         // Health check
 };
 ```
@@ -129,6 +134,11 @@ export function MonitoringCard({ data, isLoading, error, lastUpdated }: CardProp
 }
 ```
 
+### Consensus Insights Calculation
+- `CometBFTService.getConsensusState()` fetches `/dump_consensus_state` and normalizes vote ratios
+- `CometBFTService` derives prevote/precommit participation through `evaluateConsensusHealth`
+- `ConsensusStateCard` surfaces consensus height, round, step, and health issues for quick triage
+
 ### State Management in App.tsx
 ```typescript
 const [nodeData, setNodeData] = useState<NodeData | null>(null);
@@ -156,11 +166,17 @@ npm run dev
 ### Common Development Tasks
 
 #### Adding New Monitoring Card
-1. Create component in `src/components/cards/`
+1. Create component in `src/components/`
 2. Define TypeScript interfaces in `src/types/cometbft.ts`
 3. Add API method in `src/services/cometbft.ts`
 4. Integrate in `Dashboard.tsx`
 5. Update state management in `App.tsx`
+
+#### Updating Consensus Logic
+1. Adjust consensus parsing helpers in `CometBFTService` as needed (`parseVoteRatio*`, `evaluateConsensusHealth`)
+2. Extend `ConsensusStateCard` props/UI for new metrics or alerts
+3. Update `Dashboard.tsx` and `App.tsx` data plumbing if new consensus fields are introduced
+4. Document new behavior in README and monitoring guides
 
 #### Modifying API Integration
 1. Update service methods in `src/services/cometbft.ts`
