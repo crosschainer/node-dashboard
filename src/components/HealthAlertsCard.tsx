@@ -125,6 +125,17 @@ export function HealthAlertsCard({ data }: HealthAlertsCardProps) {
                 width: '8px',
                 height: '8px',
                 borderRadius: '50%',
+                background: health.consensus.healthy ? 'var(--color-success)' : 'var(--color-warning)'
+              }} />
+              <span style={{ color: 'var(--text-secondary)' }}>
+                Consensus: {health.consensus.healthy ? 'Healthy' : 'At Risk'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <div style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
                 background: pendingTxs > 200
                   ? 'var(--color-error)'
                   : pendingTxs > 50

@@ -128,12 +128,117 @@ export interface UnconfirmedTxsResponse {
   };
 }
 
+export interface ConsensusValidator {
+  address: string;
+  pub_key: {
+    type: string;
+    value: string;
+  };
+  voting_power: string;
+  proposer_priority?: string;
+}
+
+export interface ConsensusValidatorSet {
+  validators: ConsensusValidator[];
+  proposer: ConsensusValidator;
+}
+
+export interface ConsensusVoteSet {
+  round: number | string;
+  prevotes: string[];
+  prevotes_bit_array: string;
+  precommits: string[];
+  precommits_bit_array: string;
+}
+
+export interface ConsensusLastCommit {
+  votes: string[];
+  votes_bit_array: string;
+  peer_maj_23s: Record<string, unknown>;
+}
+
+export interface ConsensusRoundState {
+  height: string;
+  round: number | string;
+  step: number | string;
+  start_time: string;
+  commit_time?: string;
+  validators?: ConsensusValidatorSet;
+  proposal?: unknown;
+  proposal_block?: unknown;
+  proposal_block_parts?: unknown;
+  locked_round?: number | string;
+  locked_block?: unknown;
+  locked_block_parts?: unknown;
+  valid_round?: number | string;
+  valid_block?: unknown;
+  valid_block_parts?: unknown;
+  votes?: ConsensusVoteSet[];
+  height_vote_set?: ConsensusVoteSet[];
+  commit_round?: number | string;
+  last_commit?: ConsensusLastCommit;
+  last_validators?: ConsensusValidatorSet;
+  triggered_timeout_precommit?: boolean;
+}
+
+export interface ConsensusPeerRoundState {
+  height: string;
+  round: number | string;
+  step: number | string;
+  start_time: string;
+  proposal: boolean;
+  proposal_block_part_set_header: {
+    total: number;
+    hash: string;
+  };
+  proposal_block_parts: unknown;
+  proposal_pol_round: number;
+  proposal_pol: string;
+  prevotes: string;
+  precommits: string;
+  last_commit_round: number;
+  last_commit: string;
+  catchup_commit_round: number;
+  catchup_commit: string;
+}
+
+export interface ConsensusPeerState {
+  node_address: string;
+  peer_state: {
+    round_state: ConsensusPeerRoundState;
+    stats: {
+      votes: string;
+      block_parts: string;
+    };
+  };
+}
+
+export interface ConsensusStateResponse {
+  jsonrpc: string;
+  id: number;
+  result: {
+    round_state: ConsensusRoundState;
+    peers?: ConsensusPeerState[];
+  };
+}
+
+export interface ConsensusHealth {
+  healthy: boolean;
+  height: number | null;
+  round: number | null;
+  step: string | null;
+  prevoteRatio: number | null;
+  precommitRatio: number | null;
+  issues: string[];
+}
+
 export interface NodeHealth {
   isOnline: boolean;
   isSynced: boolean;
   hasErrors: boolean;
   errorMessages: string[];
   lastUpdated: Date;
+  consensus: ConsensusHealth;
 }
 
 export interface DashboardData {
@@ -141,6 +246,7 @@ export interface DashboardData {
   netInfo: NetInfoResponse | null;
   abciInfo: ABCIInfoResponse | null;
   mempool: UnconfirmedTxsResponse | null;
+  consensusState: ConsensusStateResponse | null;
   health: NodeHealth;
   loading: boolean;
   error: string | null;

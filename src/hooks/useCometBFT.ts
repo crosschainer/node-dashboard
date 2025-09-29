@@ -20,12 +20,22 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
     netInfo: null,
     abciInfo: null,
     mempool: null,
+    consensusState: null,
     health: {
       isOnline: false,
       isSynced: false,
       hasErrors: true,
       errorMessages: ['Initializing...'],
       lastUpdated: new Date(),
+      consensus: {
+        healthy: false,
+        height: null,
+        round: null,
+        step: null,
+        prevoteRatio: null,
+        precommitRatio: null,
+        issues: [],
+      },
     },
     loading: true,
     error: null,
@@ -49,12 +59,22 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
         ...prev,
         loading: false,
         error: error instanceof Error ? error.message : 'Failed to fetch data',
+        consensusState: null,
         health: {
           isOnline: false,
           isSynced: false,
           hasErrors: true,
           errorMessages: [error instanceof Error ? error.message : 'Failed to fetch data'],
           lastUpdated: new Date(),
+          consensus: {
+            healthy: false,
+            height: null,
+            round: null,
+            step: null,
+            prevoteRatio: null,
+            precommitRatio: null,
+            issues: [error instanceof Error ? error.message : 'Failed to fetch data'],
+          },
         }
       }));
     }
