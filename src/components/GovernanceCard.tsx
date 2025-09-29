@@ -373,6 +373,7 @@ export function GovernanceCard({
             type="button"
             onClick={openProposalModal}
             disabled={!walletInfo || walletInfo?.locked}
+
             style={{
               padding: 'var(--space-2) var(--space-3)',
               borderRadius: 'var(--radius-md)',
@@ -383,6 +384,7 @@ export function GovernanceCard({
               fontWeight: 'var(--font-medium)',
               cursor: !walletInfo || walletInfo?.locked ? 'default' : 'pointer',
               opacity: !walletInfo || walletInfo?.locked ? 0.7 : 1,
+
             }}
           >
             New Proposal
@@ -1044,6 +1046,7 @@ export function GovernanceCard({
             <button
               type="submit"
               disabled={isSubmittingProposal || !walletInfo || walletInfo?.locked}
+
               style={{
                 padding: 'var(--space-2) var(--space-3)',
                 borderRadius: 'var(--radius-md)',
@@ -1054,6 +1057,7 @@ export function GovernanceCard({
                 fontWeight: 'var(--font-medium)',
                 cursor: isSubmittingProposal || !walletInfo || walletInfo?.locked ? 'default' : 'pointer',
                 opacity: isSubmittingProposal || !walletInfo || walletInfo?.locked ? 0.7 : 1,
+
               }}
             >
               {isSubmittingProposal ? 'Submitting…' : 'Submit Proposal'}
