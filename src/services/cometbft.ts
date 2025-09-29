@@ -194,10 +194,22 @@ export class CometBFTService {
           ? round_state.round
           : parseInt(round_state.round as string, 10);
       health.consensus.round = Number.isFinite(roundValue) ? roundValue : null;
+      const stepValue = round_state.step;
       health.consensus.step =
-        round_state.step !== undefined && round_state.step !== null
-          ? String(round_state.step)
-          : null;
+        stepValue !== undefined && stepValue !== null ? String(stepValue) : null;
+
+      const stepNumber = (() => {
+        if (typeof stepValue === 'number') {
+          return Number.isFinite(stepValue) ? stepValue : null;
+        }
+
+        if (typeof stepValue === 'string') {
+          const parsed = parseInt(stepValue, 10);
+          return Number.isNaN(parsed) ? null : parsed;
+        }
+
+        return null;
+      })();
 
       const latestBlockHeight = parseInt(status.result.sync_info.latest_block_height, 10);
       if (
@@ -221,11 +233,21 @@ export class CometBFTService {
 
       const participationThreshold = 2 / 3;
 
-      if (prevoteRatio !== null && prevoteRatio < participationThreshold) {
+      if (
+        stepNumber !== null
+        && stepNumber >= 3
+        && prevoteRatio !== null
+        && prevoteRatio < participationThreshold
+      ) {
         consensusIssues.push('Prevote participation below two-thirds threshold');
       }
 
-      if (precommitRatio !== null && precommitRatio < participationThreshold) {
+      if (
+        stepNumber !== null
+        && stepNumber >= 5
+        && precommitRatio !== null
+        && precommitRatio < participationThreshold
+      ) {
         consensusIssues.push('Precommit participation below two-thirds threshold');
       }
 
