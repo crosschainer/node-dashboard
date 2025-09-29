@@ -88,7 +88,33 @@ const getStepInfo = (step: string | number | undefined) => {
   };
 };
 
-const parseBitArray = (bitArray?: string) => {
+interface VoteProgress {
+  total: number;
+  counted: number;
+  missing: number;
+  ratio: number | null;
+  threshold: number;
+  reached: boolean;
+}
+
+const createVoteProgress = (total: number, counted: number): VoteProgress => {
+  const safeTotal = Math.max(0, total);
+  const safeCounted = Math.max(0, Math.min(counted, safeTotal));
+  const threshold = safeTotal > 0
+    ? Math.min(safeTotal, Math.floor((2 * safeTotal) / 3) + 1)
+    : 0;
+
+  return {
+    total: safeTotal,
+    counted: safeCounted,
+    missing: Math.max(safeTotal - safeCounted, 0),
+    ratio: safeTotal > 0 ? safeCounted / safeTotal : null,
+    threshold,
+    reached: threshold > 0 ? safeCounted >= threshold : false,
+  };
+};
+
+const parseBitArray = (bitArray?: string): VoteProgress | null => {
   if (!bitArray) {
     return null;
   }
@@ -112,16 +138,46 @@ const parseBitArray = (bitArray?: string) => {
     return sum;
   }, 0);
 
-  const threshold = Math.floor((2 * total) / 3) + 1;
+  return createVoteProgress(total, counted);
+};
 
-  return {
-    total,
-    counted,
-    missing: Math.max(total - counted, 0),
-    ratio: total > 0 ? counted / total : null,
-    threshold,
-    reached: counted >= threshold,
-  };
+const isMeaningfulVote = (vote: string | null): vote is string =>
+  typeof vote === 'string' && vote.trim().length > 0;
+
+const isAffirmativeVote = (vote: string) => !/<nil>/i.test(vote) && !/nil-vote/i.test(vote);
+
+const parseVotesList = (votes?: (string | null)[]): VoteProgress | null => {
+  if (!votes || votes.length === 0) {
+    return null;
+  }
+
+  const meaningfulVotes = votes.filter(isMeaningfulVote);
+  if (meaningfulVotes.length === 0) {
+    return null;
+  }
+
+  const affirmativeVotes = meaningfulVotes.filter(isAffirmativeVote);
+  return createVoteProgress(meaningfulVotes.length, affirmativeVotes.length);
+};
+
+const combineVoteProgress = (
+  bitArray?: string,
+  votes?: (string | null)[],
+): VoteProgress | null => {
+  const bitArrayProgress = parseBitArray(bitArray);
+  const votesProgress = parseVotesList(votes);
+
+  if (!bitArrayProgress && !votesProgress) {
+    return null;
+  }
+
+  if (bitArrayProgress && votesProgress) {
+    const total = Math.max(bitArrayProgress.total, votesProgress.total);
+    const counted = Math.max(bitArrayProgress.counted, votesProgress.counted);
+    return createVoteProgress(total, counted);
+  }
+
+  return bitArrayProgress ?? votesProgress ?? null;
 };
 
 const getVoteSetForRound = (voteSets: ConsensusVoteSet[] | undefined, round: number | null) => {
@@ -141,13 +197,25 @@ const getVoteSetForRound = (voteSets: ConsensusVoteSet[] | undefined, round: num
   );
 };
 
-const renderVoteProgress = (
-  label: string,
+const getVoteProgress = (
   voteSet: ConsensusVoteSet | undefined,
   type: 'prevotes' | 'precommits',
+): VoteProgress | null => {
+  if (!voteSet) {
+    return null;
+  }
+
+  if (type === 'prevotes') {
+    return combineVoteProgress(voteSet.prevotes_bit_array, voteSet.prevotes);
+  }
+
+  return combineVoteProgress(voteSet.precommits_bit_array, voteSet.precommits);
+};
+
+const renderVoteProgress = (
+  label: string,
+  progress: VoteProgress | null,
 ) => {
-  const bitArray = type === 'prevotes' ? voteSet?.prevotes_bit_array : voteSet?.precommits_bit_array;
-  const progress = parseBitArray(bitArray);
   const progressRatio = progress
     ? Math.max(0, Math.min(1, Number(progress.ratio ?? 0)))
     : 0;
@@ -298,13 +366,18 @@ export function ConsensusStateCard({ data }: ConsensusStateCardProps) {
 
   const voteSets = round_state.votes ?? round_state.height_vote_set;
   const currentVoteSet = getVoteSetForRound(voteSets, roundNumber);
+  const prevoteProgress = getVoteProgress(currentVoteSet, 'prevotes');
+  const precommitProgress = getVoteProgress(currentVoteSet, 'precommits');
 
   const roundStart = new Date(round_state.start_time);
   const now = new Date();
   const roundDurationSeconds = Math.max(0, Math.round((now.getTime() - roundStart.getTime()) / 1000));
   const lastUpdatedSeconds = Math.max(0, Math.round((now.getTime() - data.health.lastUpdated.getTime()) / 1000));
 
-  const lastCommitProgress = parseBitArray(round_state.last_commit?.votes_bit_array);
+  const lastCommitProgress = combineVoteProgress(
+    round_state.last_commit?.votes_bit_array,
+    round_state.last_commit?.votes,
+  );
 
   const metricItems = [
     {
@@ -312,8 +385,8 @@ export function ConsensusStateCard({ data }: ConsensusStateCardProps) {
       value: roundHeight !== null ? roundHeight.toLocaleString() : 'Unknown',
     },
     {
-      label: 'Step',
-      value: stepInfo.label,
+      label: 'Round',
+      value: roundNumber !== null ? roundNumber.toLocaleString() : 'Unknown',
     },
     {
       label: 'Proposer',
@@ -324,28 +397,68 @@ export function ConsensusStateCard({ data }: ConsensusStateCardProps) {
   return (
     <Card title="Consensus State" glow={!consensusHealth.healthy}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           <StatusIndicator
             status={consensusHealth.healthy ? 'success' : 'warning'}
             pulse={!consensusHealth.healthy}
           >
             {consensusHealth.healthy ? 'Consensus Healthy' : 'Consensus Issues Detected'}
           </StatusIndicator>
-          <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <div
               style={{
-                fontSize: 'var(--text-xs)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
+                flexWrap: 'wrap',
+              }}
+            >
+              <span
+                style={{
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: '999px',
+                  background: 'rgba(0, 212, 255, 0.16)',
+                  color: 'var(--text-accent)',
+                  fontSize: 'var(--text-xs)',
+                  fontWeight: 'var(--font-semibold)',
+                  letterSpacing: '0.05em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {stepInfo.value !== null ? `Step ${stepInfo.value}` : 'Current Step'}
+              </span>
+              <span
+                style={{
+                  color: 'var(--text-primary)',
+                  fontSize: 'var(--text-lg)',
+                  fontWeight: 'var(--font-semibold)',
+                }}
+              >
+                {stepInfo.label}
+              </span>
+            </div>
+            <p
+              style={{
+                margin: 0,
                 color: 'var(--text-secondary)',
-                opacity: 0.8,
+                fontSize: 'var(--text-sm)',
+                lineHeight: 1.6,
+              }}
+            >
+              {stepInfo.description}
+            </p>
+            <div
+              style={{
                 display: 'flex',
                 gap: 'var(--space-2)',
                 flexWrap: 'wrap',
+                fontSize: 'var(--text-xs)',
+                color: 'var(--text-muted)',
               }}
             >
               <span>In step {formatDuration(roundDurationSeconds)}</span>
               <span>Updated {formatRelative(lastUpdatedSeconds)}</span>
             </div>
-            <span style={{ fontSize: 'var(--text-xs)', opacity: 0.7 }}>{stepInfo.description}</span>
           </div>
         </div>
 
@@ -384,7 +497,9 @@ export function ConsensusStateCard({ data }: ConsensusStateCardProps) {
               margin: 0,
             }}
           >
-            Voting Progress (Round {roundNumber !== null ? `#${roundNumber}` : 'Unknown'})
+            {roundNumber !== null && roundNumber > 0
+              ? `Voting Progress (Round #${roundNumber})`
+              : 'Voting Progress'}
           </h4>
           <div
             style={{
@@ -393,8 +508,8 @@ export function ConsensusStateCard({ data }: ConsensusStateCardProps) {
               gap: 'var(--space-3)',
             }}
           >
-            {renderVoteProgress('Prevotes', currentVoteSet, 'prevotes')}
-            {renderVoteProgress('Precommits', currentVoteSet, 'precommits')}
+            {renderVoteProgress('Prevotes', prevoteProgress)}
+            {renderVoteProgress('Precommits', precommitProgress)}
           </div>
         </div>
 
