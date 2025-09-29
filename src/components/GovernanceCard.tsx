@@ -127,7 +127,6 @@ export function GovernanceCard({
   const [voteMessage, setVoteMessage] = useState<string | null>(null);
   const [voteError, setVoteError] = useState<string | null>(null);
   const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'finalized'>('all');
 
   const {
     totalProposals,
@@ -284,18 +283,6 @@ export function GovernanceCard({
     }
   };
 
-  const filteredProposals = useMemo(() => {
-    if (activeTab === 'active') {
-      return proposals.filter((proposal) => !proposal.finalized);
-    }
-
-    if (activeTab === 'finalized') {
-      return proposals.filter((proposal) => proposal.finalized);
-    }
-
-    return proposals;
-  }, [activeTab, proposals]);
-
   const activeCount = useMemo(
     () => proposals.filter((proposal) => !proposal.finalized).length,
     [proposals],
@@ -306,20 +293,11 @@ export function GovernanceCard({
     [proposals],
   );
 
-  const tabOptions = useMemo(
-    () => [
-      { key: 'all' as const, label: `All (${proposals.length})` },
-      { key: 'active' as const, label: `Active (${activeCount})` },
-      { key: 'finalized' as const, label: `Finalized (${finalizedCount})` },
-    ],
-    [activeCount, finalizedCount, proposals.length],
-  );
-
-  const showingFrom = filteredProposals.length > 0
-    ? filteredProposals[0].id
+  const showingFrom = proposals.length > 0
+    ? proposals[0].id
     : 0;
-  const showingTo = filteredProposals.length > 0
-    ? filteredProposals[filteredProposals.length - 1].id
+  const showingTo = proposals.length > 0
+    ? proposals[proposals.length - 1].id
     : 0;
 
   return (
@@ -498,7 +476,7 @@ export function GovernanceCard({
           <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
             Total proposals: {totalProposals ?? '—'}
           </p>
-          {totalProposals && totalProposals > 0 && filteredProposals.length > 0 ? (
+          {totalProposals && totalProposals > 0 && proposals.length > 0 ? (
             <p
               style={{
                 margin: 0,
@@ -517,32 +495,6 @@ export function GovernanceCard({
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-3)' }}>
-        {tabOptions.map(({ key, label }) => {
-          const isActive = activeTab === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setActiveTab(key)}
-              style={{
-                padding: 'var(--space-2) var(--space-3)',
-                borderRadius: 'var(--radius-md)',
-                border: isActive ? 'none' : '1px solid var(--border-primary)',
-                background: isActive ? 'var(--primary-gradient)' : 'var(--bg-secondary)',
-                color: isActive ? 'white' : 'var(--text-secondary)',
-                fontSize: 'var(--text-sm)',
-                fontWeight: 'var(--font-medium)',
-                cursor: 'pointer',
-                transition: 'var(--transition-fast)',
-              }}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
-
       {error && (
         <div
           style={{
@@ -558,7 +510,7 @@ export function GovernanceCard({
         </div>
       )}
 
-      {isLoading && filteredProposals.length === 0 ? (
+      {isLoading && proposals.length === 0 ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--space-6) 0' }}>
           <LoadingSpinner size="md" />
         </div>
@@ -570,13 +522,13 @@ export function GovernanceCard({
         </p>
       ) : null}
 
-      {!isLoading && (totalProposals ?? 0) > 0 && filteredProposals.length === 0 && !error ? (
+      {!isLoading && (totalProposals ?? 0) > 0 && proposals.length === 0 && !error ? (
         <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-          No proposals match this filter.
+          No proposals available on this page.
         </p>
       ) : null}
 
-      {filteredProposals.length > 0 && !isMobile && (
+      {proposals.length > 0 && !isMobile && (
         <div
           style={{
             overflowX: 'auto',
@@ -611,7 +563,7 @@ export function GovernanceCard({
               </tr>
             </thead>
             <tbody>
-              {filteredProposals.map((proposal) => {
+              {proposals.map((proposal) => {
                 const isVoting = voteStatus?.proposalId === proposal.id;
                 const hasVoted = normalizedWalletAddress
                   ? proposal.voters.some((voter) => voter.toLowerCase() === normalizedWalletAddress)
@@ -720,7 +672,7 @@ export function GovernanceCard({
         </div>
       )}
 
-      {filteredProposals.length > 0 && isMobile && (
+      {proposals.length > 0 && isMobile && (
         <div
           style={{
             display: 'flex',
@@ -729,7 +681,7 @@ export function GovernanceCard({
             marginBottom: 'var(--space-4)',
           }}
         >
-          {filteredProposals.map((proposal) => {
+          {proposals.map((proposal) => {
             const isVoting = voteStatus?.proposalId === proposal.id;
             const hasVoted = normalizedWalletAddress
               ? proposal.voters.some((voter) => voter.toLowerCase() === normalizedWalletAddress)
@@ -911,7 +863,7 @@ export function GovernanceCard({
         </div>
       )}
 
-      {totalPages > 1 && filteredProposals.length > 0 && (
+      {totalPages > 1 && proposals.length > 0 && (
         <div
           style={{
             display: 'flex',
