@@ -7,6 +7,8 @@ import { NetworkInfoCard } from './NetworkInfoCard';
 import { MempoolCard } from './MempoolCard';
 import { VersionInfoCard } from './VersionInfoCard';
 import { useCometBFT } from '../hooks/useCometBFT';
+import { useGovernance } from '../hooks/useGovernance';
+import { GovernanceCard } from './GovernanceCard';
 
 export function Dashboard() {
   const [nodeUrl, setNodeUrl] = useState('https://node.xian.org');
@@ -16,6 +18,16 @@ export function Dashboard() {
     autoRefresh: true,
     consensusRefreshInterval: 1000,
     enableConsensusRealtime: true
+  });
+
+  const validatorInfo = data.status?.result.validator_info;
+  const votingPower = validatorInfo ? Number(validatorInfo.voting_power) : 0;
+  const isValidator = Number.isFinite(votingPower) && votingPower > 0;
+
+  const governance = useGovernance({
+    nodeUrl,
+    enabled: isValidator,
+    pageSize: 5,
   });
 
   const handleNodeUrlChange = (url: string) => {
@@ -51,6 +63,9 @@ export function Dashboard() {
         <NetworkInfoCard data={data} />
         <MempoolCard data={data} />
         <VersionInfoCard data={data} />
+        <div style={{ gridColumn: '1 / -1' }}>
+          <GovernanceCard isValidator={isValidator} governance={governance} />
+        </div>
       </main>
 
       {/* Footer */}
