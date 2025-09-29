@@ -55,7 +55,7 @@ function hexToString(hex: string): string {
 }
 
 const XianWalletUtils = {
-  rpcUrl: 'https://testnet.xian.org',
+  rpcUrl: 'https://node.xian.org',
   isWalletReady: false,
   initialized: false,
   state: {
