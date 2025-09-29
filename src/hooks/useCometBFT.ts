@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { DashboardData } from '../types/cometbft';
+import { DashboardData, ConsensusParticipationSample } from '../types/cometbft';
 import { cometbftService } from '../services/cometbft';
 
 interface UseCometBFTOptions {
@@ -39,6 +39,7 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
     },
     loading: true,
     error: null,
+    consensusHistory: [],
   });
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -53,7 +54,49 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
   const fetchData = useCallback(async () => {
     try {
       const newData = await cometbftService.getAllData();
-      setData(newData);
+      const sample: ConsensusParticipationSample | null = (() => {
+        if (!newData.consensusState) {
+          return null;
+        }
+
+        const consensus = newData.health.consensus;
+        return {
+          timestamp: new Date().toISOString(),
+          height: consensus.height,
+          round: consensus.round,
+          step: consensus.step,
+          prevoteRatio: consensus.prevoteRatio,
+          precommitRatio: consensus.precommitRatio,
+        };
+      })();
+
+      setData((previous) => {
+        const history = [...previous.consensusHistory];
+
+        if (sample) {
+          const lastEntry = history[history.length - 1];
+          const isDuplicate =
+            lastEntry
+            && lastEntry.height === sample.height
+            && lastEntry.round === sample.round
+            && lastEntry.prevoteRatio === sample.prevoteRatio
+            && lastEntry.precommitRatio === sample.precommitRatio;
+
+          if (!isDuplicate) {
+            history.push(sample);
+          }
+
+          const maxSamples = 50;
+          if (history.length > maxSamples) {
+            history.splice(0, history.length - maxSamples);
+          }
+        }
+
+        return {
+          ...newData,
+          consensusHistory: history,
+        };
+      });
     } catch (error) {
       setData(prev => ({
         ...prev,
@@ -72,10 +115,11 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
             round: null,
             step: null,
             prevoteRatio: null,
-            precommitRatio: null,
-            issues: [error instanceof Error ? error.message : 'Failed to fetch data'],
-          },
-        }
+          precommitRatio: null,
+          issues: [error instanceof Error ? error.message : 'Failed to fetch data'],
+        },
+        },
+        consensusHistory: prev.consensusHistory,
       }));
     }
   }, [nodeUrl]);
