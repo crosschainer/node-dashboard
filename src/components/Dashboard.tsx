@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Header } from './Header';
 import { NodeStatusCard } from './NodeStatusCard';
-import { VersionInfoCard } from './VersionInfoCard';
-import { NetworkInfoCard } from './NetworkInfoCard';
 import { HealthAlertsCard } from './HealthAlertsCard';
-import { MempoolCard } from './MempoolCard';
 import { ConsensusStateCard } from './ConsensusStateCard';
+import { NetworkInfoCard } from './NetworkInfoCard';
+import { MempoolCard } from './MempoolCard';
+import { VersionInfoCard } from './VersionInfoCard';
 import { useCometBFT } from '../hooks/useCometBFT';
 
 export function Dashboard() {
@@ -13,7 +13,9 @@ export function Dashboard() {
   const { data, refresh, isLoading } = useCometBFT({
     nodeUrl,
     refreshInterval: 5000,
-    autoRefresh: true
+    autoRefresh: true,
+    consensusRefreshInterval: 1000,
+    enableConsensusRealtime: true
   });
 
   const handleNodeUrlChange = (url: string) => {
@@ -29,36 +31,25 @@ export function Dashboard() {
         onNodeUrlChange={handleNodeUrlChange}
       />
       
-      <main style={{
-        maxWidth: '1400px',
-        margin: '0 auto',
-        padding: 'var(--space-6)',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-        gap: 'var(--space-6)',
-        alignItems: 'start'
-      }}>
-        {/* Primary Status Cards */}
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--space-6)'
-        }}>
+      <main
+        style={{
+          maxWidth: '1400px',
+          margin: '0 auto',
+          padding: 'var(--space-6)',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+          gap: 'var(--space-6)',
+          alignItems: 'start'
+        }}
+      >
+        <div style={{ gridColumn: '1 / -1' }}>
           <NodeStatusCard data={data} />
-          <ConsensusStateCard data={data} />
-          <HealthAlertsCard data={data} />
-          <MempoolCard data={data} />
         </div>
-
-        {/* Secondary Information Cards */}
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: 'var(--space-6)' 
-        }}>
-          <VersionInfoCard data={data} />
-          <NetworkInfoCard data={data} />
-        </div>
+        <HealthAlertsCard data={data} />
+        <ConsensusStateCard data={data} />
+        <NetworkInfoCard data={data} />
+        <MempoolCard data={data} />
+        <VersionInfoCard data={data} />
       </main>
 
       {/* Footer */}

@@ -148,6 +148,105 @@ export class CometBFTService {
     return this.parseVoteRatioFromVotes(votes);
   }
 
+  private evaluateConsensusHealth(
+    status: StatusResponse | null,
+    consensusState: ConsensusStateResponse | null,
+  ): NodeHealth['consensus'] {
+    const consensusHealth: NodeHealth['consensus'] = {
+      healthy: false,
+      height: null,
+      round: null,
+      step: null,
+      prevoteRatio: null,
+      precommitRatio: null,
+      issues: [],
+    };
+
+    if (!consensusState) {
+      consensusHealth.issues.push('Consensus state unavailable');
+      return consensusHealth;
+    }
+
+    const { round_state } = consensusState.result;
+
+    consensusHealth.height = parseInt(round_state.height, 10) || null;
+
+    const roundValue =
+      typeof round_state.round === 'number'
+        ? round_state.round
+        : parseInt(round_state.round as string, 10);
+    consensusHealth.round = Number.isFinite(roundValue) ? roundValue : null;
+
+    const stepValue = round_state.step;
+    consensusHealth.step =
+      stepValue !== undefined && stepValue !== null ? String(stepValue) : null;
+
+    const stepNumber = (() => {
+      if (typeof stepValue === 'number') {
+        return Number.isFinite(stepValue) ? stepValue : null;
+      }
+
+      if (typeof stepValue === 'string') {
+        const parsed = parseInt(stepValue, 10);
+        return Number.isNaN(parsed) ? null : parsed;
+      }
+
+      return null;
+    })();
+
+    if (status) {
+      const latestBlockHeight = parseInt(status.result.sync_info.latest_block_height, 10);
+      if (
+        Number.isFinite(latestBlockHeight)
+        && consensusHealth.height !== null
+        && Math.abs(latestBlockHeight - consensusHealth.height) > 2
+      ) {
+        consensusHealth.issues.push('Consensus height is lagging behind latest block height');
+      }
+    }
+
+    const voteSets = round_state.votes ?? round_state.height_vote_set;
+    const voteSet = voteSets?.find((set) => {
+      const round = typeof set.round === 'string' ? parseInt(set.round, 10) : set.round;
+      return round === consensusHealth.round;
+    }) ?? voteSets?.[0];
+
+    const prevoteRatio = this.calculateVoteRatio(voteSet, 'prevotes');
+    const precommitRatio = this.calculateVoteRatio(voteSet, 'precommits');
+    consensusHealth.prevoteRatio = prevoteRatio;
+    consensusHealth.precommitRatio = precommitRatio;
+
+    const participationThreshold = 2 / 3;
+
+    if (
+      stepNumber !== null
+      && stepNumber >= 3
+      && prevoteRatio !== null
+      && prevoteRatio < participationThreshold
+    ) {
+      consensusHealth.issues.push('Prevote participation below two-thirds threshold');
+    }
+
+    if (
+      stepNumber !== null
+      && stepNumber >= 5
+      && precommitRatio !== null
+      && precommitRatio < participationThreshold
+    ) {
+      consensusHealth.issues.push('Precommit participation below two-thirds threshold');
+    }
+
+    consensusHealth.healthy = consensusHealth.issues.length === 0;
+    return consensusHealth;
+  }
+
+  public deriveConsensusHealth(
+    status: StatusResponse | null,
+    consensusState: ConsensusStateResponse | null,
+  ): NodeHealth['consensus'] {
+    return this.evaluateConsensusHealth(status, consensusState);
+  }
+
   private analyzeNodeHealth(
     status: StatusResponse | null,
     netInfo: NetInfoResponse | null,
@@ -209,86 +308,16 @@ export class CometBFTService {
       }
     }
 
-    if (!consensusState) {
-      const message = 'Consensus state unavailable';
-      health.consensus.issues.push(message);
-      health.errorMessages.push(message);
+    const consensusHealth = this.evaluateConsensusHealth(status, consensusState);
+    health.consensus = consensusHealth;
+
+    if (consensusHealth.issues.length > 0) {
       health.hasErrors = true;
-    } else {
-      const { round_state } = consensusState.result;
-      const consensusIssues: string[] = [];
-
-      health.consensus.height = parseInt(round_state.height, 10) || null;
-      const roundValue =
-        typeof round_state.round === 'number'
-          ? round_state.round
-          : parseInt(round_state.round as string, 10);
-      health.consensus.round = Number.isFinite(roundValue) ? roundValue : null;
-      const stepValue = round_state.step;
-      health.consensus.step =
-        stepValue !== undefined && stepValue !== null ? String(stepValue) : null;
-
-      const stepNumber = (() => {
-        if (typeof stepValue === 'number') {
-          return Number.isFinite(stepValue) ? stepValue : null;
-        }
-
-        if (typeof stepValue === 'string') {
-          const parsed = parseInt(stepValue, 10);
-          return Number.isNaN(parsed) ? null : parsed;
-        }
-
-        return null;
-      })();
-
-      const latestBlockHeight = parseInt(status.result.sync_info.latest_block_height, 10);
-      if (
-        Number.isFinite(latestBlockHeight)
-        && health.consensus.height !== null
-        && Math.abs(latestBlockHeight - health.consensus.height) > 2
-      ) {
-        consensusIssues.push('Consensus height is lagging behind latest block height');
-      }
-
-      const voteSets = round_state.votes ?? round_state.height_vote_set;
-      const voteSet = voteSets?.find((set) => {
-        const round = typeof set.round === 'string' ? parseInt(set.round, 10) : set.round;
-        return round === health.consensus.round;
-      }) ?? voteSets?.[0];
-
-      const prevoteRatio = this.calculateVoteRatio(voteSet, 'prevotes');
-      const precommitRatio = this.calculateVoteRatio(voteSet, 'precommits');
-      health.consensus.prevoteRatio = prevoteRatio;
-      health.consensus.precommitRatio = precommitRatio;
-
-      const participationThreshold = 2 / 3;
-
-      if (
-        stepNumber !== null
-        && stepNumber >= 3
-        && prevoteRatio !== null
-        && prevoteRatio < participationThreshold
-      ) {
-        consensusIssues.push('Prevote participation below two-thirds threshold');
-      }
-
-      if (
-        stepNumber !== null
-        && stepNumber >= 5
-        && precommitRatio !== null
-        && precommitRatio < participationThreshold
-      ) {
-        consensusIssues.push('Precommit participation below two-thirds threshold');
-      }
-
-      if (consensusIssues.length > 0) {
-        health.hasErrors = true;
-        health.errorMessages.push(...consensusIssues);
-      }
-
-      health.consensus.issues = consensusIssues;
-      health.consensus.healthy = consensusIssues.length === 0;
+      health.errorMessages.push(...consensusHealth.issues);
     }
+
+    // Deduplicate error messages to avoid repeated warnings
+    health.errorMessages = Array.from(new Set(health.errorMessages));
 
     return health;
   }
