@@ -180,9 +180,9 @@ export function Dashboard() {
             aria-labelledby="dashboard-tab-governance"
           >
             <div className="dashboard-section__header">
-              <h2 className="dashboard-section__title">Version &amp; governance</h2>
+              <h2 className="dashboard-section__title">Governance</h2>
               <p className="dashboard-section__subtitle">
-                Release alignment and validator decision tracking
+                Validator decision tracking
               </p>
             </div>
             <div className="dashboard-grid">
