@@ -13,6 +13,7 @@ A modern, real-time dashboard for monitoring CometBFT 0.38.12 node health and st
 - **Node Status**: Real-time sync status, block height, and catching up indicators
 - **Version Information**: CometBFT version, ABCI app version, and build details
 - **Network Information**: Network ID, peer count, validator status, and connectivity
+- **Consensus State**: Height, round, step progression, and prevote/precommit participation
 - **Health & Alerts**: Active issue detection, system status, and error monitoring
 - **Mempool Activity**: Pending transactions, queue depth, and recent transaction previews
 
@@ -125,6 +126,7 @@ The dashboard connects to these CometBFT REST API endpoints:
 | `/abci_info` | ABCI application info | App version, build details |
 | `/net_info` | Network information | Peer count, network ID |
 | `/unconfirmed_txs` | Mempool backlog | Pending transactions and queue size |
+| `/dump_consensus_state` | Consensus progress | Height, round, step, vote participation |
 | `/health` | Node health check | Overall health status |
 
 ## 🏗️ Project Structure
@@ -133,14 +135,17 @@ The dashboard connects to these CometBFT REST API endpoints:
 node-dashboard/
 ├── src/
 │   ├── components/              # React components
+│   │   ├── Card.tsx             # Shared card container styling
+│   │   ├── ConsensusStateCard.tsx  # Consensus progress and vote health
 │   │   ├── Dashboard.tsx        # Main dashboard layout
 │   │   ├── Header.tsx           # Header with controls
-│   │   ├── cards/               # Monitoring cards
-│   │   │   ├── NodeStatusCard.tsx
-│   │   │   ├── VersionInfoCard.tsx
-│   │   │   ├── NetworkInfoCard.tsx
-│   │   │   └── HealthAlertsCard.tsx
-│   │   └── LoadingSpinner.tsx   # Loading component
+│   │   ├── HealthAlertsCard.tsx # Error detection and alerts
+│   │   ├── LoadingSpinner.tsx   # Loading component
+│   │   ├── MempoolCard.tsx      # Mempool overview
+│   │   ├── NetworkInfoCard.tsx  # Network connectivity
+│   │   ├── NodeStatusCard.tsx   # Sync state and block height
+│   │   ├── StatusIndicator.tsx  # Shared status badge
+│   │   └── VersionInfoCard.tsx  # Version metadata
 │   ├── services/                # API services
 │   │   └── cometbft.ts          # CometBFT API client
 │   ├── types/                   # TypeScript definitions
@@ -186,6 +191,11 @@ Main dashboard layout with responsive grid system for monitoring cards.
 - Validator status
 - Network connectivity health
 
+#### `ConsensusStateCard.tsx`
+- Consensus height, round, and step tracking
+- Prevote and precommit participation ratios
+- Highlighted consensus issues impacting liveness
+
 #### `MempoolCard.tsx`
 - Pending transaction overview
 - Queue depth and byte size metrics
@@ -216,6 +226,8 @@ Centralized API service for all CometBFT REST API interactions:
 
 ### Real-time Metrics
 - Block height and sync progress
+- Consensus height, round, and step progression
+- Prevote and precommit participation ratios
 - Peer connection count
 - Network participation status
 - API response times
