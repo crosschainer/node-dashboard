@@ -19,7 +19,7 @@ A modern, real-time dashboard for monitoring CometBFT 0.38.12 node health and st
 - **Mempool Activity**: Pending transactions, queue depth, and recent transaction previews
 
 ### User Experience
-- **Configurable Node URL**: Easy switching between different CometBFT nodes
+- **Configurable Node endpoint**: Enter an IP or hostname, the dashboard handles the RPC port and HTTP proxying automatically
 - **Real-time Updates**: Auto-refresh every 5 seconds with manual refresh option
 - **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
 - **Modern UI**: Dark theme with gradient accents and smooth animations
@@ -105,8 +105,10 @@ CMD ["npm", "run", "preview"]
 ## 🔧 Configuration
 
 ### Node URL Configuration
-- Click on the node URL in the header to edit
-- Default: `https://node.xian.org`
+- Click on the node address in the header to edit
+- Default: `89.163.130.217`
+- Enter just the IP/hostname; the dashboard appends the RPC port `26657` for you
+- HTTP-only nodes are proxied through `https://cors.isomorphic-git.org` to avoid browser mixed-content errors
 - Supports any CometBFT node with REST API enabled
 
 ### Environment Variables

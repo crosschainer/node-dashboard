@@ -1,11 +1,13 @@
-import { useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { LoadingSpinner } from './LoadingSpinner';
-import { cometbftService } from '../services/cometbft';
 import { CometBFTLogo, PencilIcon, WalletIcon, XIcon } from './Icons';
 import { ConnectedWalletInfo } from '../hooks/useWallet';
 
 interface HeaderProps {
-  onNodeUrlChange: (url: string) => void;
+  nodeAddress: string;
+  nodeRpcUrl: string;
+  isUsingProxy: boolean;
+  onNodeAddressChange: (value: string) => void;
   walletInfo: ConnectedWalletInfo | null;
   isConnectingWallet: boolean;
   onConnectWallet: () => void;
@@ -14,15 +16,24 @@ interface HeaderProps {
 }
 
 export function Header({
-  onNodeUrlChange,
+  nodeAddress,
+  nodeRpcUrl,
+  isUsingProxy,
+  onNodeAddressChange,
   walletInfo,
   isConnectingWallet,
   onConnectWallet,
   walletError,
   onClearWalletError,
 }: HeaderProps) {
-  const [nodeUrl, setNodeUrl] = useState(cometbftService.getBaseUrl());
+  const [nodeUrl, setNodeUrl] = useState(nodeAddress);
   const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setNodeUrl(nodeAddress);
+    }
+  }, [nodeAddress, isEditing]);
 
   const walletDisplayAddress = walletInfo?.truncatedAddress
     ?? (walletInfo?.address
@@ -31,12 +42,12 @@ export function Header({
 
   const handleUrlSubmit = (e: FormEvent) => {
     e.preventDefault();
-    onNodeUrlChange(nodeUrl);
+    onNodeAddressChange(nodeUrl.trim());
     setIsEditing(false);
   };
 
   const handleUrlReset = () => {
-    setNodeUrl(cometbftService.getBaseUrl());
+    setNodeUrl(nodeAddress);
     setIsEditing(false);
   };
 
@@ -97,12 +108,12 @@ export function Header({
         {/* Node URL Configuration */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
           {isEditing ? (
-            <form onSubmit={handleUrlSubmit} style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <form onSubmit={handleUrlSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
               <input
-                type="url"
+                type="text"
                 value={nodeUrl}
                 onChange={(e) => setNodeUrl(e.target.value)}
-                placeholder="https://node.example.com"
+                placeholder="89.163.130.217"
                 style={{
                   padding: 'var(--space-2) var(--space-3)',
                   background: 'var(--bg-tertiary)',
@@ -115,38 +126,47 @@ export function Header({
                 }}
                 autoFocus
               />
-              <button
-                type="submit"
-                style={{
-                  padding: 'var(--space-2) var(--space-3)',
-                  background: 'var(--primary-gradient)',
-                  border: 'none',
-                  borderRadius: 'var(--radius-md)',
-                  color: 'white',
-                  fontSize: 'var(--text-sm)',
-                  fontWeight: 'var(--font-medium)',
-                  cursor: 'pointer',
-                  transition: 'var(--transition-fast)'
-                }}
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                onClick={handleUrlReset}
-                style={{
-                  padding: 'var(--space-2) var(--space-3)',
-                  background: 'transparent',
-                  border: '1px solid var(--border-primary)',
-                  borderRadius: 'var(--radius-md)',
-                  color: 'var(--text-secondary)',
-                  fontSize: 'var(--text-sm)',
-                  cursor: 'pointer',
-                  transition: 'var(--transition-fast)'
-                }}
-              >
-                Cancel
-              </button>
+              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+                <button
+                  type="submit"
+                  style={{
+                    padding: 'var(--space-2) var(--space-3)',
+                    background: 'var(--primary-gradient)',
+                    border: 'none',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'white',
+                    fontSize: 'var(--text-sm)',
+                    fontWeight: 'var(--font-medium)',
+                    cursor: 'pointer',
+                    transition: 'var(--transition-fast)'
+                  }}
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUrlReset}
+                  style={{
+                    padding: 'var(--space-2) var(--space-3)',
+                    background: 'transparent',
+                    border: '1px solid var(--border-primary)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--text-secondary)',
+                    fontSize: 'var(--text-sm)',
+                    cursor: 'pointer',
+                    transition: 'var(--transition-fast)'
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+              <p style={{
+                margin: 0,
+                fontSize: 'var(--text-xs)',
+                color: 'var(--text-muted)'
+              }}>
+                RPC port 26657 is appended automatically{isUsingProxy ? ' and HTTP endpoints are proxied to keep the dashboard secure.' : '.'}
+              </p>
             </form>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -176,11 +196,11 @@ export function Header({
                   alignItems: 'center',
                   gap: 'var(--space-2)'
                 }}
-                title={nodeUrl}
-                aria-label={`Edit node URL ${nodeUrl}`}
+                title={nodeRpcUrl}
+                aria-label={`Edit node address ${nodeAddress}`}
               >
                 <PencilIcon size={14} style={{ flexShrink: 0 }} />
-                {nodeUrl}
+                {nodeAddress || 'Configure node'}
               </button>
             </div>
           )}

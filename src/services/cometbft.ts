@@ -11,12 +11,13 @@ import {
   GovernanceProposal,
   GovernanceArgument,
 } from '../types/cometbft';
+import { buildNodeConnection, DEFAULT_NODE_ADDRESS } from '../utils/nodeConnection';
 
 export class CometBFTService {
   private baseUrl: string;
   private timeout: number;
 
-  constructor(baseUrl: string = 'https://node.xian.org', timeout: number = 10000) {
+  constructor(baseUrl: string = buildNodeConnection(DEFAULT_NODE_ADDRESS).baseUrl, timeout: number = 10000) {
     this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
     this.timeout = timeout;
   }

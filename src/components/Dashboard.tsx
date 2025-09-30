@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Header } from './Header';
 import { NodeStatusCard } from './NodeStatusCard';
 import { HealthAlertsCard } from './HealthAlertsCard';
@@ -10,14 +10,16 @@ import { useCometBFT } from '../hooks/useCometBFT';
 import { useGovernance } from '../hooks/useGovernance';
 import { GovernanceCard } from './GovernanceCard';
 import { useWallet } from '../hooks/useWallet';
+import { buildNodeConnection, DEFAULT_NODE_ADDRESS } from '../utils/nodeConnection';
 
 type DashboardTab = 'overview' | 'health' | 'network' | 'governance';
 
 export function Dashboard() {
-  const [nodeUrl, setNodeUrl] = useState('https://node.xian.org');
+  const [nodeInput, setNodeInput] = useState(DEFAULT_NODE_ADDRESS);
+  const nodeConnection = useMemo(() => buildNodeConnection(nodeInput), [nodeInput]);
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const { data } = useCometBFT({
-    nodeUrl,
+    nodeUrl: nodeConnection.baseUrl,
     refreshInterval: 5000,
     autoRefresh: true,
     consensusRefreshInterval: 1000,
@@ -31,13 +33,13 @@ export function Dashboard() {
   const isValidator = Number.isFinite(votingPower) && votingPower > 0;
 
   const governance = useGovernance({
-    nodeUrl,
+    nodeUrl: nodeConnection.baseUrl,
     enabled: isValidator,
     pageSize: 5,
   });
 
-  const handleNodeUrlChange = (url: string) => {
-    setNodeUrl(url);
+  const handleNodeUrlChange = (value: string) => {
+    setNodeInput(value);
   };
 
   const tabConfig: { id: DashboardTab; label: string; description: string }[] = [
@@ -66,7 +68,10 @@ export function Dashboard() {
   return (
     <div className="dashboard-container">
       <Header
-        onNodeUrlChange={handleNodeUrlChange}
+        nodeAddress={nodeConnection.inputValue}
+        nodeRpcUrl={nodeConnection.rpcUrl}
+        isUsingProxy={nodeConnection.usesProxy}
+        onNodeAddressChange={handleNodeUrlChange}
         walletInfo={wallet.walletInfo}
         isConnectingWallet={wallet.isConnecting}
         onConnectWallet={wallet.connect}
