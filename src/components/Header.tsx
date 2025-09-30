@@ -174,7 +174,7 @@ export function Header({
                 fontSize: 'var(--text-sm)',
                 color: 'var(--text-muted)'
               }}>
-                Node:
+                Node IP:
               </span>
               <button
                 onClick={() => setIsEditing(true)}

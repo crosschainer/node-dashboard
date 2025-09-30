@@ -1,6 +1,6 @@
 const DEFAULT_NODE_ADDRESS = '89.163.130.217';
 const DEFAULT_RPC_PORT = '26657';
-const HTTP_PROXY_PREFIX = 'https://cors.isomorphic-git.org/';
+const HTTP_PROXY_PREFIX = 'https://proxy.xns.domains/proxy?url=';
 
 type SupportedProtocol = 'http:' | 'https:';
 
