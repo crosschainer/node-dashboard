@@ -555,9 +555,6 @@ export class CometBFTService {
 
     // Check if node is synced
     health.isSynced = !status.result.sync_info.catching_up;
-    if (status.result.sync_info.catching_up) {
-      health.errorMessages.push('Node is currently syncing');
-    }
 
     // Check block height freshness (should be recent)
     const latestBlockTime = new Date(status.result.sync_info.latest_block_time);
@@ -565,7 +562,7 @@ export class CometBFTService {
     const timeDiff = now.getTime() - latestBlockTime.getTime();
     const fiveMinutes = 5 * 60 * 1000;
 
-    if (timeDiff > fiveMinutes) {
+    if (timeDiff > fiveMinutes && !status.result.sync_info.catching_up) {
       health.hasErrors = true;
       health.errorMessages.push(`Latest block is ${Math.round(timeDiff / 60000)} minutes old`);
     }
@@ -575,8 +572,6 @@ export class CometBFTService {
       const peerCount = parseInt(netInfo.result.n_peers);
       if (peerCount === 0) {
         health.hasErrors = true;
-        health.errorMessages.push('No peers connected');
-      } else if (peerCount < 2) {
         health.errorMessages.push('Low peer count (less than 2)');
       }
     }
