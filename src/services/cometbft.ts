@@ -567,15 +567,6 @@ export class CometBFTService {
       health.errorMessages.push(`Latest block is ${Math.round(timeDiff / 60000)} minutes old`);
     }
 
-    // Check peer count
-    if (netInfo) {
-      const peerCount = parseInt(netInfo.result.n_peers);
-      if (peerCount === 0) {
-        health.hasErrors = true;
-        health.errorMessages.push('Low peer count (less than 2)');
-      }
-    }
-
     const consensusHealth = this.evaluateConsensusHealth(status, consensusState);
     health.consensus = consensusHealth;
 
