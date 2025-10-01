@@ -45,6 +45,7 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
     loading: true,
     error: null,
     consensusHistory: [],
+    appHashDiagnostics: null,
   });
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -127,6 +128,7 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
           },
         },
         consensusHistory: prev.consensusHistory,
+        appHashDiagnostics: null,
       }));
     }
   }, [nodeUrl]);

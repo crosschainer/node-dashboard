@@ -218,6 +218,61 @@ export interface CommitResponse {
   };
 }
 
+export interface BlockResponse {
+  jsonrpc: string;
+  id: number;
+  result: {
+    block_id: {
+      hash: string;
+      [key: string]: unknown;
+    };
+    block: {
+      header: {
+        height: string;
+        app_hash?: string;
+        [key: string]: unknown;
+      };
+      data: {
+        txs: string[] | null;
+      };
+      [key: string]: unknown;
+    };
+  };
+}
+
+export interface BlockResultsResponse {
+  jsonrpc: string;
+  id: number;
+  result: {
+    height: string;
+    txs_results?: Array<{
+      code?: number;
+      log?: string;
+      info?: string;
+      [key: string]: unknown;
+    }> | null;
+    [key: string]: unknown;
+  };
+}
+
+export interface TransactionRecord {
+  hash?: string;
+  height?: string;
+  index?: number;
+  tx?: string;
+  [key: string]: unknown;
+}
+
+export interface TransactionsResponse {
+  jsonrpc: string;
+  id: number;
+  result: {
+    total_count?: string;
+    txs?: TransactionRecord[] | null;
+    [key: string]: unknown;
+  };
+}
+
 export interface ConsensusPeerRoundState {
   height: string;
   round: number | string;
@@ -278,6 +333,31 @@ export interface ConsensusParticipationSample {
   precommitRatio: number | null;
 }
 
+export interface TransactionMismatch {
+  index: number;
+  suspectTx: string | null;
+  referenceTx: string | null;
+}
+
+export interface AppHashDivergenceDiagnostics {
+  height: number | null;
+  suspectNode: string;
+  referenceNode: string;
+  suspectAppHash: string | null;
+  referenceAppHash: string | null;
+  suspectBlockHash: string | null;
+  referenceBlockHash: string | null;
+  suspectTxCount: number;
+  referenceTxCount: number;
+  missingTransactions: string[];
+  extraTransactions: string[];
+  orderMismatches: TransactionMismatch[];
+  suspectTxs: string[];
+  referenceTxs: string[];
+  lastChecked: Date;
+  error?: string | null;
+}
+
 export interface NodeHealth {
   isOnline: boolean;
   isSynced: boolean;
@@ -323,4 +403,5 @@ export interface DashboardData {
   loading: boolean;
   error: string | null;
   consensusHistory: ConsensusParticipationSample[];
+  appHashDiagnostics: AppHashDivergenceDiagnostics | null;
 }

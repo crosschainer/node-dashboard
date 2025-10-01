@@ -11,17 +11,267 @@ import {
   GovernanceProposal,
   GovernanceArgument,
   CommitResponse,
+  BlockResponse,
+  TransactionsResponse,
+  AppHashDivergenceDiagnostics,
+  TransactionMismatch,
 } from '../types/cometbft';
-import { buildNodeConnection, DEFAULT_NODE_ADDRESS } from '../utils/nodeConnection';
+import { buildNodeConnection, DEFAULT_NODE_ADDRESS, HTTP_PROXY_PREFIX } from '../utils/nodeConnection';
 import { normalizeConsensusStep } from '../utils/consensusSteps';
 
 export class CometBFTService {
   private baseUrl: string;
   private timeout: number;
+  private referenceNodeBaseUrl: string;
 
-  constructor(baseUrl: string = buildNodeConnection(DEFAULT_NODE_ADDRESS).baseUrl, timeout: number = 10000) {
+  constructor(
+    baseUrl: string = buildNodeConnection(DEFAULT_NODE_ADDRESS).baseUrl,
+    timeout: number = 10000,
+    referenceNodeBaseUrl: string = buildNodeConnection(DEFAULT_NODE_ADDRESS).baseUrl,
+  ) {
     this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
     this.timeout = timeout;
+    this.referenceNodeBaseUrl = referenceNodeBaseUrl.replace(/\/$/, '');
+  }
+
+  private buildUrl(baseUrl: string, path: string): string {
+    const trimmedBase = baseUrl.replace(/\/+$/, '');
+    const trimmedPath = path.replace(/^\/+/, '');
+    return `${trimmedBase}/${trimmedPath}`;
+  }
+
+  private async safeFetchJson<T>(baseUrl: string, path: string): Promise<T | null> {
+    const url = this.buildUrl(baseUrl, path);
+
+    try {
+      const response = await this.fetchWithTimeout(url);
+      if (!response.ok) {
+        console.warn(`Request to ${url} failed with HTTP ${response.status}`);
+        return null;
+      }
+
+      return await response.json() as T;
+    } catch (error) {
+      console.warn(`Request to ${url} failed:`, error);
+      return null;
+    }
+  }
+
+  private extractNodeIdentifier(baseUrl: string): string {
+    if (!baseUrl) {
+      return 'unknown';
+    }
+
+    if (baseUrl.startsWith(HTTP_PROXY_PREFIX)) {
+      const rawTarget = baseUrl.slice(HTTP_PROXY_PREFIX.length);
+      const decodedTarget = (() => {
+        try {
+          return decodeURIComponent(rawTarget);
+        } catch {
+          return rawTarget;
+        }
+      })();
+
+      try {
+        const parsedTarget = new URL(decodedTarget);
+        return parsedTarget.host || decodedTarget;
+      } catch {
+        return decodedTarget;
+      }
+    }
+
+    try {
+      const parsed = new URL(baseUrl);
+      return parsed.host || baseUrl;
+    } catch {
+      return baseUrl;
+    }
+  }
+
+  private normalizeTransactions(
+    block: BlockResponse | null,
+    transactions: TransactionsResponse | null,
+  ): string[] {
+    const collected: string[] = [];
+
+    if (transactions?.result?.txs && Array.isArray(transactions.result.txs)) {
+      for (const entry of transactions.result.txs) {
+        const candidate = (typeof entry?.tx === 'string' && entry.tx.trim().length > 0)
+          ? entry.tx.trim()
+          : typeof entry?.hash === 'string' && entry.hash.trim().length > 0
+            ? entry.hash.trim()
+            : null;
+
+        if (candidate) {
+          collected.push(candidate);
+        }
+      }
+    }
+
+    if (collected.length === 0 && block?.result?.block?.data?.txs) {
+      for (const value of block.result.block.data.txs) {
+        if (typeof value === 'string' && value.trim().length > 0) {
+          collected.push(value.trim());
+        }
+      }
+    }
+
+    return collected;
+  }
+
+  private computeOrderMismatches(
+    suspectTxs: string[],
+    referenceTxs: string[],
+    limit: number = 10,
+  ): TransactionMismatch[] {
+    const mismatches: TransactionMismatch[] = [];
+    const maxIndex = Math.min(suspectTxs.length, referenceTxs.length);
+
+    for (let index = 0; index < maxIndex; index += 1) {
+      if (suspectTxs[index] === referenceTxs[index]) {
+        continue;
+      }
+
+      mismatches.push({
+        index,
+        suspectTx: suspectTxs[index] ?? null,
+        referenceTx: referenceTxs[index] ?? null,
+      });
+
+      if (mismatches.length >= limit) {
+        break;
+      }
+    }
+
+    if (mismatches.length < limit) {
+      if (suspectTxs.length > referenceTxs.length) {
+        for (let index = referenceTxs.length; index < suspectTxs.length && mismatches.length < limit; index += 1) {
+          mismatches.push({
+            index,
+            suspectTx: suspectTxs[index] ?? null,
+            referenceTx: null,
+          });
+        }
+      } else if (referenceTxs.length > suspectTxs.length) {
+        for (let index = suspectTxs.length; index < referenceTxs.length && mismatches.length < limit; index += 1) {
+          mismatches.push({
+            index,
+            suspectTx: null,
+            referenceTx: referenceTxs[index] ?? null,
+          });
+        }
+      }
+    }
+
+    return mismatches;
+  }
+
+  private async diagnoseAppHashDivergence(
+    commit: CommitResponse | null,
+    abciInfo: ABCIInfoResponse | null,
+  ): Promise<AppHashDivergenceDiagnostics | null> {
+    const header = commit?.result?.signed_header?.header;
+    const heightCandidate = header?.height
+      ?? abciInfo?.result?.response?.last_block_height
+      ?? null;
+
+    const parsedHeight = heightCandidate != null
+      ? Number.parseInt(String(heightCandidate), 10)
+      : Number.NaN;
+
+    const height = Number.isFinite(parsedHeight) && parsedHeight > 0
+      ? parsedHeight
+      : null;
+
+    if (height == null) {
+      return {
+        height: null,
+        suspectNode: this.extractNodeIdentifier(this.baseUrl),
+        referenceNode: this.extractNodeIdentifier(this.referenceNodeBaseUrl),
+        suspectAppHash: typeof header?.app_hash === 'string' ? header.app_hash.trim() : null,
+        referenceAppHash: null,
+        suspectBlockHash: null,
+        referenceBlockHash: null,
+        suspectTxCount: 0,
+        referenceTxCount: 0,
+        missingTransactions: [],
+        extraTransactions: [],
+        orderMismatches: [],
+        suspectTxs: [],
+        referenceTxs: [],
+        lastChecked: new Date(),
+        error: 'Unable to determine block height for divergence analysis',
+      };
+    }
+
+    const suspectBaseUrl = this.baseUrl;
+    const referenceBaseUrl = this.referenceNodeBaseUrl;
+
+    const [
+      suspectBlock,
+      referenceBlock,
+      suspectTransactions,
+      referenceTransactions,
+    ] = await Promise.all([
+      this.safeFetchJson<BlockResponse>(suspectBaseUrl, `/block?height=${height}`),
+      this.safeFetchJson<BlockResponse>(referenceBaseUrl, `/block?height=${height}`),
+      this.safeFetchJson<TransactionsResponse>(suspectBaseUrl, `/transactions?height=${height}`),
+      this.safeFetchJson<TransactionsResponse>(referenceBaseUrl, `/transactions?height=${height}`),
+    ]);
+
+    const suspectTxs = this.normalizeTransactions(suspectBlock, suspectTransactions);
+    const referenceTxs = this.normalizeTransactions(referenceBlock, referenceTransactions);
+
+    const suspectSet = new Set(suspectTxs);
+    const referenceSet = new Set(referenceTxs);
+
+    const missingTransactions = referenceTxs.filter((tx) => !suspectSet.has(tx));
+    const extraTransactions = suspectTxs.filter((tx) => !referenceSet.has(tx));
+
+    const diagnostics: AppHashDivergenceDiagnostics = {
+      height,
+      suspectNode: this.extractNodeIdentifier(suspectBaseUrl),
+      referenceNode: this.extractNodeIdentifier(referenceBaseUrl),
+      suspectAppHash: typeof header?.app_hash === 'string' ? header.app_hash.trim() : null,
+      referenceAppHash: typeof referenceBlock?.result?.block?.header?.app_hash === 'string'
+        ? referenceBlock.result.block.header.app_hash.trim()
+        : null,
+      suspectBlockHash: typeof suspectBlock?.result?.block_id?.hash === 'string'
+        ? suspectBlock.result.block_id.hash.trim()
+        : null,
+      referenceBlockHash: typeof referenceBlock?.result?.block_id?.hash === 'string'
+        ? referenceBlock.result.block_id.hash.trim()
+        : null,
+      suspectTxCount: suspectTxs.length,
+      referenceTxCount: referenceTxs.length,
+      missingTransactions,
+      extraTransactions,
+      orderMismatches: this.computeOrderMismatches(suspectTxs, referenceTxs),
+      suspectTxs,
+      referenceTxs,
+      lastChecked: new Date(),
+      error: null,
+    };
+
+    const errors: string[] = [];
+
+    if (!suspectBlock) {
+      errors.push('Failed to fetch block data from target node');
+    }
+
+    if (!referenceBlock) {
+      errors.push('Failed to fetch block data from reference node');
+    }
+
+    if (referenceTxs.length === 0) {
+      errors.push('Reference node returned no transactions for comparison');
+    }
+
+    if (errors.length > 0) {
+      diagnostics.error = errors.join('; ');
+    }
+
+    return diagnostics;
   }
 
   private buildAbciQueryUrl(path: string, data?: string): string {
@@ -520,7 +770,7 @@ export class CometBFTService {
 
   private analyzeNodeHealth(
     status: StatusResponse | null,
-    netInfo: NetInfoResponse | null,
+    _netInfo: NetInfoResponse | null,
     consensusState: ConsensusStateResponse | null,
     abciInfo: ABCIInfoResponse | null,
     commit: CommitResponse | null,
@@ -652,6 +902,7 @@ export class CometBFTService {
       error: null,
       consensusState: null,
       consensusHistory: [],
+      appHashDiagnostics: null,
     };
 
     try {
@@ -733,6 +984,40 @@ export class CometBFTService {
         data.commit,
       );
       data.health.lastUpdated = new Date();
+      data.appHashDiagnostics = null;
+
+      const hasAppHashWarning = data.health.errorMessages.some((message) =>
+        /^possible app-hash divergence/i.test(message),
+      );
+
+      if (hasAppHashWarning) {
+        try {
+          data.appHashDiagnostics = await this.diagnoseAppHashDivergence(data.commit, data.abciInfo);
+        } catch (error) {
+          console.warn('Failed to diagnose app hash divergence:', error);
+          data.appHashDiagnostics = {
+            height: data.commit?.result?.signed_header?.header?.height
+              ? Number.parseInt(String(data.commit.result.signed_header.header.height), 10) || null
+              : null,
+            suspectNode: this.extractNodeIdentifier(this.baseUrl),
+            referenceNode: this.extractNodeIdentifier(this.referenceNodeBaseUrl),
+            suspectAppHash: data.commit?.result?.signed_header?.header?.app_hash ?? null,
+            referenceAppHash: null,
+            suspectBlockHash: null,
+            referenceBlockHash: null,
+            suspectTxCount: 0,
+            referenceTxCount: 0,
+            missingTransactions: [],
+            extraTransactions: [],
+            orderMismatches: [],
+            suspectTxs: [],
+            referenceTxs: [],
+            lastChecked: new Date(),
+            error: error instanceof Error ? error.message : 'Failed to fetch divergence diagnostics',
+          };
+        }
+      }
+
       data.loading = false;
 
     } catch (error) {
@@ -755,6 +1040,7 @@ export class CometBFTService {
         },
       };
       data.consensusHistory = [];
+      data.appHashDiagnostics = null;
     }
 
     return data;
