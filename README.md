@@ -14,6 +14,7 @@ A modern, real-time dashboard for monitoring CometBFT 0.38.12 node health and st
 - **Version Information**: CometBFT version, ABCI app version, and build details
 - **Network Information**: Network ID, peer count, validator status, and connectivity
 - **Consensus State**: Height, round, step progression, and prevote/precommit participation
+- **Consensus Stall Detection**: Flags catch-up loops reported by `/dump_consensus_state` so operators can spot replay issues early
 - **Governance Proposals**: Paginated masternode proposals with live yes/no tallies, voter lists, and manual refresh support
 - **Health & Alerts**: Active issue detection, system status, and error monitoring
 - **Mempool Activity**: Pending transactions, queue depth, and recent transaction previews
