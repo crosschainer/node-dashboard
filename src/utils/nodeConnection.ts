@@ -118,7 +118,7 @@ export function buildNodeConnection(rawInput: string): NodeConnection {
   const baseUrl = usesProxy ? `${HTTP_PROXY_PREFIX}${rpcUrl}` : rpcUrl;
 
   const graphqlHostname = normaliseHostname(hostname || DEFAULT_NODE_ADDRESS);
-  const graphqlTarget = `https://${graphqlHostname}/graphiql`;
+  const graphqlTarget = `http://${graphqlHostname}:5000/graphiql`;
   const graphqlProbeUrl = `${HTTP_PROXY_PREFIX}${graphqlTarget}`;
 
   const cleanedInput = (() => {

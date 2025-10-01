@@ -1,11 +1,11 @@
 // Node 18+. Run: `node server.js`
 // Supports:
-//   - HTTP  : http://<IP>:26657/... (port restriction kept)
+//   - HTTP  : http://<IP>:(26657|5678)/...        ← updated
 //   - HTTPS : https://<IP>[:port]/... (any port; IP-only)
 // Query params:
-//   &host=<override Host header>
-//   &sni=<override TLS SNI>
-//   &insecure=1 (skip TLS verification)
+//   &host=<override Host header>   (HTTP/HTTPS)
+//   &sni=<override TLS SNI>        (HTTPS)
+//   &insecure=1 (skip TLS verify)  (HTTPS)
 
 import http from "node:http";
 import https from "node:https";
@@ -44,10 +44,11 @@ function parseTarget(raw) {
   let u;
   try { u = new URL(raw); } catch { throw new Error("Invalid URL"); }
   if (!isIP(u.hostname)) throw new Error("Hostname must be a literal IP (v4 or v6)");
-  if (u.protocol === "http:" && (u.port || "") !== "26657") {
-    throw new Error("For http:// targets, port must be :26657");
-  }
-  if (u.protocol !== "http:" && u.protocol !== "https:") {
+  if (u.protocol === "http:") {
+    const allowed = new Set(["26657", "5000"]); // ← allow both 26657 and 5678
+    const port = u.port || "";
+    if (!allowed.has(port)) throw new Error("For http:// targets, port must be :26657 or :5000");
+  } else if (u.protocol !== "https:") {
     throw new Error("Only http:// or https:// targets allowed");
   }
   return u;
@@ -76,15 +77,13 @@ const server = http.createServer((req, res) => {
   if (req.method === "GET" && reqUrl.pathname === "/") {
     return safeEndJson(res, 200, {
       ok: true,
-      usage: "/proxy?url=http://<ip>:26657/<path>  OR  /proxy?url=https://<ip>[:port]/<path>[&host=..][&sni=..][&insecure=1]"
+      usage: "/proxy?url=http://<ip>:(26657|5000)/<path>  OR  /proxy?url=https://<ip>[:port]/<path>[&host=..][&sni=..][&insecure=1]"
     }, req, responded);
   }
 
   // CORS preflight
   if (req.method === "OPTIONS") {
-    if (!responded.sent && !res.headersSent) {
-      res.writeHead(204, cors(req));
-    }
+    if (!responded.sent && !res.headersSent) res.writeHead(204, cors(req));
     if (!res.writableEnded) res.end();
     return;
   }
@@ -101,12 +100,12 @@ const server = http.createServer((req, res) => {
   const hostOverride = reqUrl.searchParams.get("host"); // HTTP Host header
   const sniOverride  = reqUrl.searchParams.get("sni");  // TLS SNI
   const isHttps = target.protocol === "https:";
-  const port = Number(target.port) || (isHttps ? 443 : 26657);
+  const port = Number(target.port) || (isHttps ? 443 : (target.protocol === "http:" ? 80 : 0)); // explicit http ports required by parseTarget
 
   const headers = {
     "Accept": "application/json, text/html, */*;q=0.1",
     "Accept-Encoding": "identity",
-    "User-Agent": "AnyIP-Proxy/1.1",
+    "User-Agent": "Any-IP-Proxy/1.1",
     "Connection": "close",
     "Host": hostOverride ? `${hostOverride}${target.port ? ":"+target.port : ""}` : target.host,
   };
@@ -127,17 +126,11 @@ const server = http.createServer((req, res) => {
       }
     : optionsBase;
 
-  // Choose client and attach listeners ONCE
   const client = (isHttps ? https : http).request(options);
 
   client.once("response", (up) => {
-    // Only proceed if we haven't responded yet
-    if (responded.sent) {
-      try { up.destroy(); } catch {}
-      return;
-    }
+    if (responded.sent) { try { up.destroy(); } catch {} return; }
 
-    // Build safe headers and write response headers once
     const safe = {};
     for (const [k, v] of Object.entries(up.headers)) {
       const lk = k.toLowerCase();
@@ -150,15 +143,12 @@ const server = http.createServer((req, res) => {
     }
 
     responded.sent = true;
-    if (!res.headersSent) {
-      res.writeHead(up.statusCode || 502, { ...safe, ...cors(req) });
-    }
-    // Stream body
-    up.pipe(res);
+    if (!res.headersSent) res.writeHead(up.statusCode || 502, { ...safe, ...cors(req) });
 
-    // Inactivity watchdog
     let idle = setTimeout(() => { try { client.destroy(new Error("Upstream inactivity timeout")); } catch {} }, INACTIVITY_TIMEOUT_MS);
     up.on("data", () => { clearTimeout(idle); idle = setTimeout(() => { try { client.destroy(new Error("Upstream inactivity timeout")); } catch {} }, INACTIVITY_TIMEOUT_MS); });
+
+    up.pipe(res);
     up.once("end", () => { clearTimeout(idle); });
     up.once("error", () => { clearTimeout(idle); try { res.end(); } catch {} });
   });
@@ -173,7 +163,6 @@ const server = http.createServer((req, res) => {
     const errno = /** @type {any} */(err).errno || "";
     const details = (err && err.message) ? err.message : String(err);
 
-    // If we already started sending the upstream response, don't send headers again.
     if (responded.sent || res.headersSent) {
       try { if (!res.writableEnded) res.end(); } catch {}
       return;
@@ -187,7 +176,7 @@ const server = http.createServer((req, res) => {
       target: `${target.protocol}//${target.hostname}:${port}${target.pathname}${target.search}`,
       hints: [
         hintForCode(code),
-        isHttps ? "Try &insecure=1 or set &sni=<expected.domain> (and optionally &host=<expected.domain>)." : undefined,
+        (target.protocol === "https:") ? "Try &insecure=1 or set &sni=<expected.domain> (and optionally &host=<expected.domain>)." : undefined,
       ].filter(Boolean)
     }, req, responded);
   });
