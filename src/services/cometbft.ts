@@ -425,7 +425,22 @@ export class CometBFTService {
     const stepInfo = this.interpretConsensusStep(round_state.step);
     consensusHealth.step = stepInfo.display;
 
+
+    const normalizedStep =
+      typeof stepValue === 'string' ? stepValue.toLowerCase() : null;
     const isCatchupStep = stepInfo.normalized?.includes('catchup') ?? false;
+
+    if (isCatchupStep) {
+      const catchupMessage = status?.result.sync_info.catching_up
+        ? 'Node is stuck replaying blocks due to consensus catch-up issues'
+        : 'Consensus step indicates catch-up mode despite sync being reported complete';
+      consensusHealth.issues.push(catchupMessage);
+    }
+
+    const stepNumber = (() => {
+      if (typeof stepValue === 'number') {
+        return Number.isFinite(stepValue) ? stepValue : null;
+      }
 
     if (isCatchupStep) {
       const catchupMessage = status?.result.sync_info.catching_up
