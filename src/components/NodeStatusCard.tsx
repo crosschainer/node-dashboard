@@ -56,7 +56,7 @@ export function NodeStatusCard({ data }: NodeStatusCardProps) {
     if (graphqlEnabled === false) {
       return {
         variant: 'error' as const,
-        label: 'GraphQL Unreachable',
+        label: 'GraphQL Disabled',
       };
     }
 
