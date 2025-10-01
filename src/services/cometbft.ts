@@ -368,12 +368,58 @@ export class CometBFTService {
         : parseInt(round_state.round as string, 10);
     consensusHealth.round = Number.isFinite(roundValue) ? roundValue : null;
 
-    const stepInfo = normalizeConsensusStep(round_state.step ?? null);
     const rawStepValue =
       typeof round_state.step === 'number' || typeof round_state.step === 'string'
         ? String(round_state.step)
         : null;
+    const stepInfo = normalizeConsensusStep(round_state.step ?? null);
     consensusHealth.step = stepInfo.label ?? rawStepValue;
+
+    const replayErrorIndicators = [
+      'wrong block.header.lastresultshash',
+      'wrong block.header.apphash',
+      'wrong block.header.lastblockid',
+      'wrong block.header.validatorshash',
+      'wrong block.header.nextvalidatorshash',
+      'error in validation',
+      'failed to process committed block',
+      'error on replay',
+      'failed to replay',
+      'cannot replay',
+    ];
+
+    const addReplayIssue = (source: string, message: string) => {
+      if (!message) {
+        return;
+      }
+
+      const trimmedMessage = message.trim();
+      if (!trimmedMessage) {
+        return;
+      }
+
+      const normalized = trimmedMessage.toLowerCase();
+      const indicator = replayErrorIndicators.find((pattern) => normalized.includes(pattern));
+
+      if (!indicator) {
+        return;
+      }
+
+      const summary = trimmedMessage.length > 160
+        ? `${trimmedMessage.slice(0, 157)}...`
+        : trimmedMessage;
+
+      const prefix = source ? `Consensus replay error detected (${source})` : 'Consensus replay error detected';
+      const issueMessage = `${prefix}: ${summary}`;
+
+      if (!consensusHealth.issues.includes(issueMessage)) {
+        consensusHealth.issues.push(issueMessage);
+      }
+    };
+
+    if (rawStepValue) {
+      addReplayIssue('round step', rawStepValue);
+    }
 
     if (stepInfo.isCatchup) {
       const catchupMessage = status?.result.sync_info.catching_up
@@ -394,6 +440,12 @@ export class CometBFTService {
         consensusHealth.issues.push('Consensus height is lagging behind latest block height');
       }
     }
+
+    const peers = consensusState.result.peers ?? [];
+    peers.forEach((peer) => {
+      addReplayIssue(`peer ${peer.node_address}`, peer.peer_state?.round_state?.catchup_commit);
+      addReplayIssue(`peer ${peer.node_address}`, peer.peer_state?.round_state?.proposal_pol);
+    });
 
     const voteSets = round_state.votes ?? round_state.height_vote_set;
     const voteSet = voteSets?.find((set) => {
@@ -504,6 +556,14 @@ export class CometBFTService {
     if (consensusHealth.issues.length > 0) {
       health.hasErrors = true;
       health.errorMessages.push(...consensusHealth.issues);
+    }
+
+    const hasReplayIssue = consensusHealth.issues.some((issue) =>
+      /replay error/i.test(issue) || /catch-up/.test(issue),
+    );
+
+    if (hasReplayIssue) {
+      health.isSynced = false;
     }
 
     // Deduplicate error messages to avoid repeated warnings
