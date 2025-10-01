@@ -207,17 +207,35 @@ export class CometBFTService {
     const suspectBaseUrl = this.baseUrl;
     const referenceBaseUrl = this.referenceNodeBaseUrl;
 
-    const [
+    const targetHeight = height + 1;
+
+    const fetchHeightData = async (heightToQuery: number) => Promise.all([
+      this.safeFetchJson<BlockResponse>(suspectBaseUrl, `/block?height=${heightToQuery}`),
+      this.safeFetchJson<BlockResponse>(referenceBaseUrl, `/block?height=${heightToQuery}`),
+      this.safeFetchJson<TransactionsResponse>(suspectBaseUrl, `/transactions?height=${heightToQuery}`),
+      this.safeFetchJson<TransactionsResponse>(referenceBaseUrl, `/transactions?height=${heightToQuery}`),
+    ] as const);
+
+    let heightToQuery = targetHeight;
+
+    let [
       suspectBlock,
       referenceBlock,
       suspectTransactions,
       referenceTransactions,
-    ] = await Promise.all([
-      this.safeFetchJson<BlockResponse>(suspectBaseUrl, `/block?height=${height}`),
-      this.safeFetchJson<BlockResponse>(referenceBaseUrl, `/block?height=${height}`),
-      this.safeFetchJson<TransactionsResponse>(suspectBaseUrl, `/transactions?height=${height}`),
-      this.safeFetchJson<TransactionsResponse>(referenceBaseUrl, `/transactions?height=${height}`),
-    ]);
+    ] = await fetchHeightData(heightToQuery);
+
+    const noBlocksReturned = !suspectBlock?.result?.block && !referenceBlock?.result?.block;
+
+    if (noBlocksReturned && heightToQuery !== height) {
+      heightToQuery = height;
+      [
+        suspectBlock,
+        referenceBlock,
+        suspectTransactions,
+        referenceTransactions,
+      ] = await fetchHeightData(heightToQuery);
+    }
 
     const suspectTxs = this.normalizeTransactions(suspectBlock, suspectTransactions);
     const referenceTxs = this.normalizeTransactions(referenceBlock, referenceTransactions);
@@ -229,7 +247,7 @@ export class CometBFTService {
     const extraTransactions = suspectTxs.filter((tx) => !referenceSet.has(tx));
 
     const diagnostics: AppHashDivergenceDiagnostics = {
-      height,
+      height: heightToQuery,
       suspectNode: this.extractNodeIdentifier(suspectBaseUrl),
       referenceNode: this.extractNodeIdentifier(referenceBaseUrl),
       suspectAppHash: typeof header?.app_hash === 'string' ? header.app_hash.trim() : null,
