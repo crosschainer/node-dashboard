@@ -13,6 +13,22 @@ import {
 } from '../types/cometbft';
 import { buildNodeConnection, DEFAULT_NODE_ADDRESS } from '../utils/nodeConnection';
 
+const CONSENSUS_STEP_LABELS: Record<number, string> = {
+  0: 'RoundStepNewHeight',
+  1: 'RoundStepNewRound',
+  2: 'RoundStepPropose',
+  3: 'RoundStepPrevote',
+  4: 'RoundStepPrecommit',
+  5: 'RoundStepCommit',
+  6: 'RoundStepCatchupCommit',
+};
+
+const CONSENSUS_STEP_NAME_LOOKUP: Record<string, number> = Object.entries(CONSENSUS_STEP_LABELS)
+  .reduce((lookup, [numericStep, label]) => {
+    lookup[label.toLowerCase()] = Number(numericStep);
+    return lookup;
+  }, {} as Record<string, number>);
+
 export class CometBFTService {
   private baseUrl: string;
   private timeout: number;
@@ -338,6 +354,45 @@ export class CometBFTService {
     return this.parseVoteRatioFromVotes(votes);
   }
 
+  private interpretConsensusStep(step: number | string | null | undefined): {
+    display: string | null;
+    number: number | null;
+    normalized: string | null;
+  } {
+    if (step === null || step === undefined) {
+      return { display: null, number: null, normalized: null };
+    }
+
+    if (typeof step === 'number') {
+      if (!Number.isFinite(step)) {
+        return { display: String(step), number: null, normalized: null };
+      }
+
+      const label = CONSENSUS_STEP_LABELS[step] ?? `Step ${step}`;
+      return { display: label, number: step, normalized: label.toLowerCase() };
+    }
+
+    const rawStep = String(step).trim();
+    if (rawStep.length === 0) {
+      return { display: '', number: null, normalized: '' };
+    }
+
+    const parsedNumber = Number(rawStep);
+    if (!Number.isNaN(parsedNumber) && Number.isFinite(parsedNumber)) {
+      const label = CONSENSUS_STEP_LABELS[parsedNumber] ?? rawStep;
+      return { display: label, number: parsedNumber, normalized: label.toLowerCase() };
+    }
+
+    const normalized = rawStep.toLowerCase();
+    const mappedNumber = CONSENSUS_STEP_NAME_LOOKUP[normalized];
+    if (mappedNumber !== undefined) {
+      const label = CONSENSUS_STEP_LABELS[mappedNumber];
+      return { display: label, number: mappedNumber, normalized };
+    }
+
+    return { display: rawStep, number: null, normalized };
+  }
+
   private evaluateConsensusHealth(
     status: StatusResponse | null,
     consensusState: ConsensusStateResponse | null,
@@ -367,13 +422,13 @@ export class CometBFTService {
         : parseInt(round_state.round as string, 10);
     consensusHealth.round = Number.isFinite(roundValue) ? roundValue : null;
 
-    const stepValue = round_state.step;
-    consensusHealth.step =
-      stepValue !== undefined && stepValue !== null ? String(stepValue) : null;
+    const stepInfo = this.interpretConsensusStep(round_state.step);
+    consensusHealth.step = stepInfo.display;
+
 
     const normalizedStep =
       typeof stepValue === 'string' ? stepValue.toLowerCase() : null;
-    const isCatchupStep = normalizedStep?.includes('catchup') ?? false;
+    const isCatchupStep = stepInfo.normalized?.includes('catchup') ?? false;
 
     if (isCatchupStep) {
       const catchupMessage = status?.result.sync_info.catching_up
@@ -387,13 +442,14 @@ export class CometBFTService {
         return Number.isFinite(stepValue) ? stepValue : null;
       }
 
-      if (typeof stepValue === 'string') {
-        const parsed = parseInt(stepValue, 10);
-        return Number.isNaN(parsed) ? null : parsed;
-      }
+    if (isCatchupStep) {
+      const catchupMessage = status?.result.sync_info.catching_up
+        ? 'Node is stuck replaying blocks due to consensus catch-up issues'
+        : 'Consensus step indicates catch-up mode despite sync being reported complete';
+      consensusHealth.issues.push(catchupMessage);
+    }
 
-      return null;
-    })();
+    const stepNumber = stepInfo.number;
 
     if (status) {
       const latestBlockHeight = parseInt(status.result.sync_info.latest_block_height, 10);
