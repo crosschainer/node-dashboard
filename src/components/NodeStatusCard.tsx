@@ -60,15 +60,7 @@ export function NodeStatusCard({ data }: NodeStatusCardProps) {
             <StatusIndicator status={isSynced ? 'success' : 'warning'} pulse={!isSynced}>
               {isSynced ? 'Synced' : 'Syncing'}
             </StatusIndicator>
-            {!isSynced && (
-              <p style={{
-                marginTop: 'var(--space-2)',
-                color: 'var(--text-warning)',
-                fontSize: 'var(--text-sm)'
-              }}>
-                Node is catching up with the network
-              </p>
-            )}
+            
 
           </div>
 
@@ -77,15 +69,7 @@ export function NodeStatusCard({ data }: NodeStatusCardProps) {
             <StatusIndicator status={isValidator ? 'success' : 'warning'}>
               {isValidator ? 'Validator Active' : 'Not in Validator Set'}
             </StatusIndicator>
-            {!isValidator && (
-              <p style={{
-                marginTop: 'var(--space-2)',
-                color: 'var(--text-warning)',
-                fontSize: 'var(--text-sm)'
-              }}>
-                Node has no validator voting power
-              </p>
-            )}
+            
           </div>
         </div>
 
