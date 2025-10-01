@@ -55,14 +55,14 @@ export function NodeStatusCard({ data }: NodeStatusCardProps) {
 
     if (graphqlEnabled === false) {
       return {
-        variant: 'error' as const,
-        label: 'GraphQL Disabled',
+        variant: 'warning' as const,
+        label: 'GraphQL Unreachable',
       };
     }
 
     return {
       variant: 'warning' as const,
-      label: 'GraphQL Unknown',
+      label: 'GraphQL Unreachable',
     };
   })();
 
