@@ -23,6 +23,7 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
     status: null,
     netInfo: null,
     abciInfo: null,
+    commit: null,
     mempool: null,
     consensusState: null,
     health: {
@@ -108,6 +109,7 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
         loading: false,
         error: error instanceof Error ? error.message : 'Failed to fetch data',
         consensusState: null,
+        commit: null,
         health: {
           isOnline: false,
           isSynced: false,
@@ -120,9 +122,9 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
             round: null,
             step: null,
             prevoteRatio: null,
-          precommitRatio: null,
-          issues: [error instanceof Error ? error.message : 'Failed to fetch data'],
-        },
+            precommitRatio: null,
+            issues: [error instanceof Error ? error.message : 'Failed to fetch data'],
+          },
         },
         consensusHistory: prev.consensusHistory,
       }));
