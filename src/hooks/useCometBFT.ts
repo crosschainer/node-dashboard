@@ -8,6 +8,7 @@ interface UseCometBFTOptions {
   nodeUrl?: string;
   consensusRefreshInterval?: number;
   enableConsensusRealtime?: boolean;
+  graphqlProbeUrl?: string | null;
 }
 
 export function useCometBFT(options: UseCometBFTOptions = {}) {
@@ -16,7 +17,8 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
     autoRefresh = true,
     nodeUrl,
     consensusRefreshInterval = 1000,
-    enableConsensusRealtime = true
+    enableConsensusRealtime = true,
+    graphqlProbeUrl = null,
   } = options;
 
   const [data, setData] = useState<DashboardData>({
@@ -41,6 +43,7 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
         precommitRatio: null,
         issues: [],
       },
+      graphqlEnabled: null,
     },
     loading: true,
     error: null,
@@ -55,7 +58,8 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
     if (nodeUrl) {
       cometbftService.setBaseUrl(nodeUrl);
     }
-  }, [nodeUrl]);
+    cometbftService.setGraphqlProbeUrl(graphqlProbeUrl ?? null);
+  }, [nodeUrl, graphqlProbeUrl]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -125,6 +129,7 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
             precommitRatio: null,
             issues: [error instanceof Error ? error.message : 'Failed to fetch data'],
           },
+          graphqlEnabled: null,
         },
         consensusHistory: prev.consensusHistory,
       }));

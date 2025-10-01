@@ -285,6 +285,7 @@ export interface NodeHealth {
   errorMessages: string[];
   lastUpdated: Date;
   consensus: ConsensusHealth;
+  graphqlEnabled: boolean | null;
 }
 
 export type GovernanceArgument =

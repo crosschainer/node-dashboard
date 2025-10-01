@@ -43,6 +43,28 @@ export function NodeStatusCard({ data }: NodeStatusCardProps) {
   const isSynced = !sync_info.catching_up;
   const votingPower = Number(validator_info.voting_power);
   const isValidator = Number.isFinite(votingPower) && votingPower > 0;
+  const graphqlEnabled = data.health.graphqlEnabled;
+
+  const graphqlStatus = (() => {
+    if (graphqlEnabled === true) {
+      return {
+        variant: 'success' as const,
+        label: 'GraphQL Enabled',
+      };
+    }
+
+    if (graphqlEnabled === false) {
+      return {
+        variant: 'error' as const,
+        label: 'GraphQL Unreachable',
+      };
+    }
+
+    return {
+      variant: 'warning' as const,
+      label: 'GraphQL Unknown',
+    };
+  })();
 
   return (
     <Card title="Node Status" glow={data.health.isOnline}>
@@ -69,7 +91,14 @@ export function NodeStatusCard({ data }: NodeStatusCardProps) {
             <StatusIndicator status={isValidator ? 'success' : 'warning'}>
               {isValidator ? 'Validator Active' : 'Not in Validator Set'}
             </StatusIndicator>
-            
+
+          </div>
+
+          {/* GraphQL Availability */}
+          <div>
+            <StatusIndicator status={graphqlStatus.variant}>
+              {graphqlStatus.label}
+            </StatusIndicator>
           </div>
         </div>
 

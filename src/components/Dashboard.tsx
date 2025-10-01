@@ -20,7 +20,8 @@ export function Dashboard() {
     refreshInterval: 5000,
     autoRefresh: true,
     consensusRefreshInterval: 1000,
-    enableConsensusRealtime: true
+    enableConsensusRealtime: true,
+    graphqlProbeUrl: nodeConnection.graphqlProbeUrl,
   });
 
   const handleNodeUrlChange = (value: string) => {
