@@ -199,6 +199,25 @@ export interface ConsensusRoundState {
   triggered_timeout_precommit?: boolean;
 }
 
+export interface CommitHeader {
+  height: string;
+  app_hash: string;
+  last_results_hash: string;
+  [key: string]: unknown;
+}
+
+export interface CommitResponse {
+  jsonrpc: string;
+  id: number;
+  result: {
+    signed_header: {
+      header: CommitHeader;
+      commit: unknown;
+    };
+    canonical: boolean;
+  };
+}
+
 export interface ConsensusPeerRoundState {
   height: string;
   round: number | string;
@@ -297,6 +316,7 @@ export interface DashboardData {
   status: StatusResponse | null;
   netInfo: NetInfoResponse | null;
   abciInfo: ABCIInfoResponse | null;
+  commit: CommitResponse | null;
   mempool: UnconfirmedTxsResponse | null;
   consensusState: ConsensusStateResponse | null;
   health: NodeHealth;

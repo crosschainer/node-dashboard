@@ -10,6 +10,7 @@ import {
   ABCIQueryResponse,
   GovernanceProposal,
   GovernanceArgument,
+  CommitResponse,
 } from '../types/cometbft';
 import { buildNodeConnection, DEFAULT_NODE_ADDRESS } from '../utils/nodeConnection';
 import { normalizeConsensusStep } from '../utils/consensusSteps';
@@ -211,6 +212,34 @@ export class CometBFTService {
       return await response.json();
     } catch (error) {
       throw new Error(`Failed to fetch ABCI info: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async getCommit(height?: number | string): Promise<CommitResponse> {
+    const heightParam = (() => {
+      if (typeof height === 'number') {
+        return Number.isFinite(height) ? Math.max(0, Math.trunc(height)).toString() : '';
+      }
+
+      if (typeof height === 'string' && height.trim().length > 0) {
+        return height.trim();
+      }
+
+      return '';
+    })();
+
+    const url = heightParam
+      ? `${this.baseUrl}/commit?height=${encodeURIComponent(heightParam)}`
+      : `${this.baseUrl}/commit`;
+
+    try {
+      const response = await this.fetchWithTimeout(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      throw new Error(`Failed to fetch commit: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -493,6 +522,8 @@ export class CometBFTService {
     status: StatusResponse | null,
     netInfo: NetInfoResponse | null,
     consensusState: ConsensusStateResponse | null,
+    abciInfo: ABCIInfoResponse | null,
+    commit: CommitResponse | null,
   ): NodeHealth {
     const health: NodeHealth = {
       isOnline: false,
@@ -566,6 +597,42 @@ export class CometBFTService {
       health.isSynced = false;
     }
 
+    if (abciInfo && commit) {
+      const abciResponse = abciInfo.result?.response;
+      const header = commit.result?.signed_header?.header;
+
+      const abciHeight = abciResponse?.last_block_height
+        ? Number.parseInt(abciResponse.last_block_height, 10)
+        : Number.NaN;
+      const abciAppHash = typeof abciResponse?.last_block_app_hash === 'string'
+        ? abciResponse.last_block_app_hash.trim()
+        : '';
+      const commitHeight = header?.height
+        ? Number.parseInt(String(header.height), 10)
+        : Number.NaN;
+      const commitAppHash = typeof header?.app_hash === 'string'
+        ? header.app_hash.trim()
+        : '';
+      const commitLastResultsHash = typeof header?.last_results_hash === 'string'
+        ? header.last_results_hash.trim()
+        : '';
+
+      let hasDivergence = false;
+
+      if (!Number.isNaN(abciHeight) && !Number.isNaN(commitHeight) && abciAppHash.length > 0) {
+        if (commitHeight === abciHeight && commitAppHash.length > 0) {
+          hasDivergence = commitAppHash !== abciAppHash;
+        } else if (commitHeight === abciHeight + 1 && commitLastResultsHash.length > 0) {
+          hasDivergence = commitLastResultsHash !== abciAppHash;
+        }
+      }
+
+      if (hasDivergence) {
+        health.hasErrors = true;
+        health.errorMessages.push('Possible app-hash divergence — see node logs.');
+      }
+    }
+
     // Deduplicate error messages to avoid repeated warnings
     health.errorMessages = Array.from(new Set(health.errorMessages));
 
@@ -577,6 +644,7 @@ export class CometBFTService {
       status: null,
       netInfo: null,
       abciInfo: null,
+      commit: null,
       mempool: null,
       health: {
         isOnline: false,
@@ -644,8 +712,40 @@ export class CometBFTService {
         console.warn('Consensus state error:', consensusState.reason);
       }
 
+      const commitHeight = (() => {
+        if (status.status === 'fulfilled') {
+          const height = status.value.result?.sync_info?.latest_block_height;
+          if (typeof height === 'string' && height.trim().length > 0) {
+            return height.trim();
+          }
+        }
+
+        if (abciInfo.status === 'fulfilled') {
+          const height = abciInfo.value.result?.response?.last_block_height;
+          if (typeof height === 'string' && height.trim().length > 0) {
+            return height.trim();
+          }
+        }
+
+        return null;
+      })();
+
+      if (commitHeight) {
+        try {
+          data.commit = await this.getCommit(commitHeight);
+        } catch (error) {
+          console.warn('Commit info error:', error);
+        }
+      }
+
       // Analyze health
-      data.health = this.analyzeNodeHealth(data.status, data.netInfo, data.consensusState);
+      data.health = this.analyzeNodeHealth(
+        data.status,
+        data.netInfo,
+        data.consensusState,
+        data.abciInfo,
+        data.commit,
+      );
       data.health.lastUpdated = new Date();
       data.loading = false;
 
