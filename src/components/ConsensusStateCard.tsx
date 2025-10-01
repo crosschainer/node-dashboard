@@ -2,6 +2,7 @@ import { Card } from './Card';
 import { StatusIndicator } from './StatusIndicator';
 import { LoadingSpinner } from './LoadingSpinner';
 import { DashboardData, ConsensusVoteSet } from '../types/cometbft';
+import { normalizeConsensusStep } from '../utils/consensusSteps';
 
 interface ConsensusStateCardProps {
   data: DashboardData;
@@ -13,37 +14,6 @@ const formatPercentage = (value: number | null, fallback: string = '—') => {
   }
 
   return `${(value * 100).toFixed(1)}%`;
-};
-
-const STEP_LABELS: Record<number, { label: string; description: string }> = {
-  0: {
-    label: 'New Height',
-    description: 'Moving commits for the previous height and preparing a new round.',
-  },
-  1: {
-    label: 'Proposal',
-    description: 'Designated proposer is broadcasting the block proposal for this round.',
-  },
-  2: {
-    label: 'Prevote',
-    description: 'Validators are evaluating the proposal and broadcasting prevotes.',
-  },
-  3: {
-    label: 'Prevote Wait',
-    description: 'Waiting for +2/3 prevotes or the timeout to expire.',
-  },
-  4: {
-    label: 'Precommit',
-    description: 'Validators are locking on the PoLC and broadcasting precommits.',
-  },
-  5: {
-    label: 'Precommit Wait',
-    description: 'Waiting for +2/3 precommits or the timeout to expire.',
-  },
-  6: {
-    label: 'Commit',
-    description: 'Block reached +2/3 precommits and nodes are finalising the commit.',
-  },
 };
 
 const parseNumeric = (value: string | number | undefined | null): number | null => {
@@ -60,31 +30,20 @@ const parseNumeric = (value: string | number | undefined | null): number | null 
 };
 
 const getStepInfo = (step: string | number | undefined) => {
-  if (step === undefined || step === null) {
-    return { label: 'Unknown', description: 'The node has not reported a consensus step yet.', value: null };
-  }
+  const normalized = normalizeConsensusStep(step ?? null);
 
-  if (typeof step === 'string' && Number.isNaN(Number(step))) {
-    const normalised = step.toLowerCase();
-    const stepEntry = Object.entries(STEP_LABELS).find(([, info]) =>
-      normalised.includes(info.label.toLowerCase()),
-    );
-    const entry = stepEntry?.[1];
-    const numericValue = stepEntry ? Number(stepEntry[0]) : null;
+  if (normalized.label === null) {
     return {
-      label: entry?.label ?? step,
-      description: entry?.description ?? 'Consensus step as reported by the node.',
-      value: numericValue,
+      label: 'Unknown',
+      description: 'The node has not reported a consensus step yet.',
+      value: null,
     };
   }
 
-  const numeric = typeof step === 'number' ? step : parseInt(step, 10);
-  const entry = STEP_LABELS[numeric];
-
   return {
-    label: entry?.label ?? `${Number.isFinite(numeric) ? numeric : step}`,
-    description: entry?.description ?? 'Consensus step as reported by the node.',
-    value: Number.isFinite(numeric) ? numeric : null,
+    label: normalized.label,
+    description: normalized.description,
+    value: normalized.code,
   };
 };
 

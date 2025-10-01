@@ -12,6 +12,7 @@ import {
   GovernanceArgument,
 } from '../types/cometbft';
 import { buildNodeConnection, DEFAULT_NODE_ADDRESS } from '../utils/nodeConnection';
+import { normalizeConsensusStep } from '../utils/consensusSteps';
 
 export class CometBFTService {
   private baseUrl: string;
@@ -367,33 +368,21 @@ export class CometBFTService {
         : parseInt(round_state.round as string, 10);
     consensusHealth.round = Number.isFinite(roundValue) ? roundValue : null;
 
-    const stepValue = round_state.step;
-    consensusHealth.step =
-      stepValue !== undefined && stepValue !== null ? String(stepValue) : null;
+    const stepInfo = normalizeConsensusStep(round_state.step ?? null);
+    const rawStepValue =
+      typeof round_state.step === 'number' || typeof round_state.step === 'string'
+        ? String(round_state.step)
+        : null;
+    consensusHealth.step = stepInfo.label ?? rawStepValue;
 
-    const normalizedStep =
-      typeof stepValue === 'string' ? stepValue.toLowerCase() : null;
-    const isCatchupStep = normalizedStep?.includes('catchup') ?? false;
-
-    if (isCatchupStep) {
+    if (stepInfo.isCatchup) {
       const catchupMessage = status?.result.sync_info.catching_up
         ? 'Node is stuck replaying blocks due to consensus catch-up issues'
         : 'Consensus step indicates catch-up mode despite sync being reported complete';
       consensusHealth.issues.push(catchupMessage);
     }
 
-    const stepNumber = (() => {
-      if (typeof stepValue === 'number') {
-        return Number.isFinite(stepValue) ? stepValue : null;
-      }
-
-      if (typeof stepValue === 'string') {
-        const parsed = parseInt(stepValue, 10);
-        return Number.isNaN(parsed) ? null : parsed;
-      }
-
-      return null;
-    })();
+    const stepNumber = stepInfo.code;
 
     if (status) {
       const latestBlockHeight = parseInt(status.result.sync_info.latest_block_height, 10);
