@@ -25,10 +25,15 @@ export class CometBFTService {
     firstDetectedAt: number;
     confirmed: boolean;
   } | null = null;
+  private graphqlProbeUrl: string | null;
 
-  constructor(baseUrl: string = buildNodeConnection(DEFAULT_NODE_ADDRESS).baseUrl, timeout: number = 10000) {
-    this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
+  constructor(baseUrl?: string, timeout: number = 10000) {
+    const defaultConnection = buildNodeConnection(DEFAULT_NODE_ADDRESS);
+    const resolvedBaseUrl = (baseUrl ?? defaultConnection.baseUrl).replace(/\/$/, '');
+
+    this.baseUrl = resolvedBaseUrl; // Remove trailing slash
     this.timeout = timeout;
+    this.graphqlProbeUrl = defaultConnection.graphqlProbeUrl;
   }
 
   private buildAbciQueryUrl(path: string, data?: string): string {
@@ -48,17 +53,27 @@ export class CometBFTService {
     return `${this.baseUrl}/abci_query?${query}`;
   }
 
-  private async fetchWithTimeout(url: string): Promise<Response> {
+  private async fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
     try {
+      const headers = new Headers({
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      });
+
+      if (options.headers) {
+        const customHeaders = new Headers(options.headers as HeadersInit);
+        customHeaders.forEach((value, key) => {
+          headers.set(key, value);
+        });
+      }
+
       const response = await fetch(url, {
+        ...options,
         signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
+        headers,
       });
       clearTimeout(timeoutId);
       return response;
@@ -530,6 +545,7 @@ export class CometBFTService {
     consensusState: ConsensusStateResponse | null,
     abciInfo: ABCIInfoResponse | null,
     commit: CommitResponse | null,
+    graphqlEnabled: boolean | null,
   ): NodeHealth {
     const health: NodeHealth = {
       isOnline: false,
@@ -546,6 +562,7 @@ export class CometBFTService {
         precommitRatio: null,
         issues: [],
       },
+      graphqlEnabled,
     };
 
     if (!status) {
@@ -685,6 +702,7 @@ export class CometBFTService {
           precommitRatio: null,
           issues: [],
         },
+        graphqlEnabled: null,
       },
       loading: true,
       error: null,
@@ -694,12 +712,13 @@ export class CometBFTService {
 
     try {
       // Fetch all data in parallel
-      const [status, netInfo, abciInfo, mempool, consensusState] = await Promise.allSettled([
+      const [status, netInfo, abciInfo, mempool, consensusState, graphqlAvailability] = await Promise.allSettled([
         this.getStatus(),
         this.getNetInfo(),
         this.getABCIInfo(),
         this.getUnconfirmedTxs(),
         this.getConsensusState(),
+        this.checkGraphqlAvailability(),
       ]);
 
       // Handle status
@@ -736,6 +755,10 @@ export class CometBFTService {
         console.warn('Consensus state error:', consensusState.reason);
       }
 
+      const graphqlEnabled = graphqlAvailability.status === 'fulfilled'
+        ? graphqlAvailability.value
+        : (console.warn('GraphQL availability check failed:', graphqlAvailability.reason), null);
+
       const commitHeight = (() => {
         if (status.status === 'fulfilled') {
           const height = status.value.result?.sync_info?.latest_block_height;
@@ -768,6 +791,7 @@ export class CometBFTService {
         data.consensusState,
         data.abciInfo,
         data.commit,
+        graphqlEnabled,
       );
       data.health.lastUpdated = new Date();
       data.loading = false;
@@ -790,6 +814,7 @@ export class CometBFTService {
           precommitRatio: null,
           issues: [data.error],
         },
+        graphqlEnabled: null,
       };
       data.consensusHistory = [];
     }
@@ -797,8 +822,30 @@ export class CometBFTService {
     return data;
   }
 
+  private async checkGraphqlAvailability(): Promise<boolean | null> {
+    if (!this.graphqlProbeUrl) {
+      return null;
+    }
+
+    try {
+      const response = await this.fetchWithTimeout(this.graphqlProbeUrl, {
+        headers: {
+          'Accept': 'text/html,application/json',
+        },
+      });
+      return response.ok;
+    } catch (error) {
+      console.warn('GraphQL probe request failed:', error);
+      return false;
+    }
+  }
+
   setBaseUrl(url: string) {
     this.baseUrl = url.replace(/\/$/, '');
+  }
+
+  setGraphqlProbeUrl(url: string | null) {
+    this.graphqlProbeUrl = url ? url.replace(/\/$/, '') : null;
   }
 
   getBaseUrl(): string {

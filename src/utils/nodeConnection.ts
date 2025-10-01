@@ -38,6 +38,10 @@ export interface NodeConnection {
    * provides a different port.
    */
   port: string;
+  /**
+   * Helper URL that probes the node's GraphQL endpoint via the proxy service.
+   */
+  graphqlProbeUrl: string;
 }
 
 const PROTOCOL_PATTERN = /^[a-zA-Z][a-zA-Z+.-]*:\/\//;
@@ -113,6 +117,10 @@ export function buildNodeConnection(rawInput: string): NodeConnection {
   const usesProxy = protocol === 'http:';
   const baseUrl = usesProxy ? `${HTTP_PROXY_PREFIX}${rpcUrl}` : rpcUrl;
 
+  const graphqlHostname = normaliseHostname(hostname || DEFAULT_NODE_ADDRESS);
+  const graphqlTarget = `https://${graphqlHostname}/graphiql`;
+  const graphqlProbeUrl = `${HTTP_PROXY_PREFIX}${graphqlTarget}`;
+
   const cleanedInput = (() => {
     const rawHostname = stripHostnameBrackets(hostname) || DEFAULT_NODE_ADDRESS;
     const hasCustomPort = Boolean(parsed.port && parsed.port !== DEFAULT_RPC_PORT);
@@ -133,6 +141,7 @@ export function buildNodeConnection(rawInput: string): NodeConnection {
     protocol,
     hostname: stripHostnameBrackets(hostname),
     port,
+    graphqlProbeUrl,
   };
 }
 
