@@ -520,7 +520,6 @@ export class CometBFTService {
 
   private analyzeNodeHealth(
     status: StatusResponse | null,
-    netInfo: NetInfoResponse | null,
     consensusState: ConsensusStateResponse | null,
     abciInfo: ABCIInfoResponse | null,
     commit: CommitResponse | null,
@@ -727,7 +726,6 @@ export class CometBFTService {
       // Analyze health
       data.health = this.analyzeNodeHealth(
         data.status,
-        data.netInfo,
         data.consensusState,
         data.abciInfo,
         data.commit,

@@ -7,12 +7,9 @@ import { NetworkInfoCard } from './NetworkInfoCard';
 import { MempoolCard } from './MempoolCard';
 import { VersionInfoCard } from './VersionInfoCard';
 import { useCometBFT } from '../hooks/useCometBFT';
-import { useGovernance } from '../hooks/useGovernance';
-import { GovernanceCard } from './GovernanceCard';
-import { useWallet } from '../hooks/useWallet';
 import { buildNodeConnection, DEFAULT_NODE_ADDRESS } from '../utils/nodeConnection';
 
-type DashboardTab = 'overview' | 'health' | 'network' | 'governance';
+type DashboardTab = 'overview' | 'health' | 'network';
 
 export function Dashboard() {
   const [nodeInput, setNodeInput] = useState(DEFAULT_NODE_ADDRESS);
@@ -24,18 +21,6 @@ export function Dashboard() {
     autoRefresh: true,
     consensusRefreshInterval: 1000,
     enableConsensusRealtime: true
-  });
-
-  const wallet = useWallet();
-
-  const validatorInfo = data.status?.result.validator_info;
-  const votingPower = validatorInfo ? Number(validatorInfo.voting_power) : 0;
-  const isValidator = Number.isFinite(votingPower) && votingPower > 0;
-
-  const governance = useGovernance({
-    nodeUrl: nodeConnection.baseUrl,
-    enabled: isValidator,
-    pageSize: 5,
   });
 
   const handleNodeUrlChange = (value: string) => {
@@ -58,11 +43,6 @@ export function Dashboard() {
       label: 'Network activity',
       description: 'Peer connectivity, throughput and mempool insights',
     },
-    {
-      id: 'governance',
-      label: 'Governance',
-      description: 'Validator decision tracking',
-    },
   ];
 
   return (
@@ -72,11 +52,6 @@ export function Dashboard() {
         nodeRpcUrl={nodeConnection.rpcUrl}
         isUsingProxy={nodeConnection.usesProxy}
         onNodeAddressChange={handleNodeUrlChange}
-        walletInfo={wallet.walletInfo}
-        isConnectingWallet={wallet.isConnecting}
-        onConnectWallet={wallet.connect}
-        walletError={wallet.error}
-        onClearWalletError={wallet.clearError}
       />
 
       <main className="dashboard-content">
@@ -177,34 +152,6 @@ export function Dashboard() {
           </section>
         )}
 
-        {activeTab === 'governance' && (
-          <section
-            className="dashboard-section"
-            role="tabpanel"
-            id="dashboard-panel-governance"
-            aria-labelledby="dashboard-tab-governance"
-          >
-            <div className="dashboard-section__header">
-              <h2 className="dashboard-section__title">Governance</h2>
-              <p className="dashboard-section__subtitle">
-                Validator decision tracking
-              </p>
-            </div>
-            <div className="dashboard-grid">
-              <div className="dashboard-item dashboard-item--wide">
-                <GovernanceCard
-                  isValidator={isValidator}
-                  governance={governance}
-                  walletInfo={wallet.walletInfo}
-                  isConnectingWallet={wallet.isConnecting}
-                  onConnectWallet={wallet.connect}
-                  walletError={wallet.error}
-                  clearWalletError={wallet.clearError}
-                />
-              </div>
-            </div>
-          </section>
-        )}
       </main>
 
       <footer className="dashboard-footer">

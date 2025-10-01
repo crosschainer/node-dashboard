@@ -1,18 +1,11 @@
 import { useEffect, useState, FormEvent } from 'react';
-import { LoadingSpinner } from './LoadingSpinner';
-import { CometBFTLogo, PencilIcon, WalletIcon, XIcon } from './Icons';
-import { ConnectedWalletInfo } from '../hooks/useWallet';
+import { CometBFTLogo, PencilIcon } from './Icons';
 
 interface HeaderProps {
   nodeAddress: string;
   nodeRpcUrl: string;
   isUsingProxy: boolean;
   onNodeAddressChange: (value: string) => void;
-  walletInfo: ConnectedWalletInfo | null;
-  isConnectingWallet: boolean;
-  onConnectWallet: () => void;
-  walletError: string | null;
-  onClearWalletError: () => void;
 }
 
 export function Header({
@@ -20,11 +13,6 @@ export function Header({
   nodeRpcUrl,
   isUsingProxy,
   onNodeAddressChange,
-  walletInfo,
-  isConnectingWallet,
-  onConnectWallet,
-  walletError,
-  onClearWalletError,
 }: HeaderProps) {
   const [nodeUrl, setNodeUrl] = useState(nodeAddress);
   const [isEditing, setIsEditing] = useState(false);
@@ -34,11 +22,6 @@ export function Header({
       setNodeUrl(nodeAddress);
     }
   }, [nodeAddress, isEditing]);
-
-  const walletDisplayAddress = walletInfo?.truncatedAddress
-    ?? (walletInfo?.address
-      ? `${walletInfo.address.slice(0, 6)}…${walletInfo.address.slice(-4)}`
-      : null);
 
   const handleUrlSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -106,9 +89,19 @@ export function Header({
         </div>
 
         {/* Node URL Configuration */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-end',
+            gap: 'var(--space-3)',
+            flexDirection: isEditing ? 'column' : 'row',
+          }}
+        >
           {isEditing ? (
-            <form onSubmit={handleUrlSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+            <form
+              onSubmit={handleUrlSubmit}
+              style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}
+            >
               <input
                 type="text"
                 value={nodeUrl}
@@ -160,16 +153,38 @@ export function Header({
                   Cancel
                 </button>
               </div>
-              <p style={{
-                margin: 0,
-                fontSize: 'var(--text-xs)',
-                color: 'var(--text-muted)'
-              }}>
-                RPC port 26657 is appended automatically{isUsingProxy ? ' and HTTP endpoints are proxied to keep the dashboard secure.' : '.'}
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--text-muted)'
+                }}
+              >
+                RPC port 26657 is appended automatically
+                {isUsingProxy
+                  ? ' and HTTP endpoints are proxied to keep the dashboard secure.'
+                  : '.'}
+              </p>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--text-muted)',
+                  fontFamily: 'var(--font-mono)'
+                }}
+              >
+                Current endpoint: {nodeRpcUrl}
               </p>
             </form>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 'var(--space-2)',
+                flexDirection: 'column'
+              }}
+            >
               <span style={{
                 fontSize: 'var(--text-sm)',
                 color: 'var(--text-muted)'
@@ -202,89 +217,17 @@ export function Header({
                 <PencilIcon size={14} style={{ flexShrink: 0 }} />
                 {nodeAddress || 'Configure node'}
               </button>
+              <span
+                style={{
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--text-muted)',
+                  fontFamily: 'var(--font-mono)'
+                }}
+              >
+                RPC endpoint: {nodeRpcUrl}
+              </span>
             </div>
           )}
-        </div>
-
-        {/* Wallet Controls */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 'var(--space-2)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            <div style={{ textAlign: 'right' }}>
-              <span style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                Wallet status
-              </span>
-              <span style={{ fontSize: 'var(--text-sm)', color: walletInfo ? 'var(--text-secondary)' : 'var(--text-muted)', fontFamily: walletInfo ? 'var(--font-mono)' : 'inherit' }}>
-                {walletInfo ? walletDisplayAddress : 'Not connected'}
-              </span>
-              {walletInfo?.locked ? (
-                <span style={{ display: 'block', fontSize: 'var(--text-xs)', color: 'var(--color-warning)' }}>
-                  Wallet is locked
-                </span>
-              ) : null}
-            </div>
-            <button
-              type="button"
-              onClick={onConnectWallet}
-              disabled={isConnectingWallet}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-2)',
-                padding: 'var(--space-3) var(--space-4)',
-                background: 'var(--primary-gradient)',
-                border: 'none',
-                borderRadius: 'var(--radius-lg)',
-                color: 'white',
-                fontSize: 'var(--text-sm)',
-                fontWeight: 'var(--font-medium)',
-                cursor: isConnectingWallet ? 'not-allowed' : 'pointer',
-                transition: 'var(--transition-fast)',
-                opacity: isConnectingWallet ? 0.7 : 1,
-              }}
-            >
-              {isConnectingWallet ? (
-                <>
-                  <LoadingSpinner size="sm" />
-                  Connecting…
-                </>
-              ) : (
-                <>
-                  <WalletIcon size={16} />
-                  {walletInfo ? 'Reconnect Wallet' : 'Connect Wallet'}
-                </>
-              )}
-            </button>
-          </div>
-          {walletError ? (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-2)',
-              background: 'rgba(255, 71, 87, 0.12)',
-              color: 'var(--color-error)',
-              borderRadius: 'var(--radius-md)',
-              padding: 'var(--space-2) var(--space-3)',
-              fontSize: 'var(--text-xs)',
-            }}>
-              <span>{walletError}</span>
-              <button
-                type="button"
-                onClick={onClearWalletError}
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  color: 'inherit',
-                  display: 'flex',
-                  alignItems: 'center',
-                  cursor: 'pointer',
-                  padding: 0,
-                }}
-                aria-label="Dismiss wallet error"
-              >
-                <XIcon size={12} />
-              </button>
-            </div>
-          ) : null}
         </div>
       </div>
     </header>

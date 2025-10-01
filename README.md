@@ -15,7 +15,6 @@ A modern, real-time dashboard for monitoring CometBFT 0.38.12 node health and st
 - **Network Information**: Network ID, peer count, validator status, and connectivity
 - **Consensus State**: Height, round, step progression, and prevote/precommit participation
 - **Consensus Stall Detection**: Flags catch-up loops reported by `/dump_consensus_state` so operators can spot replay issues early
-- **Governance Proposals**: Paginated masternode proposals with live yes/no tallies, voter lists, and manual refresh support
 - **Health & Alerts**: Active issue detection, system status, and error monitoring
 - **Mempool Activity**: Pending transactions, queue depth, and recent transaction previews
 
@@ -132,19 +131,6 @@ The dashboard connects to these CometBFT REST API endpoints:
 | `/unconfirmed_txs` | Mempool backlog | Pending transactions and queue size |
 | `/dump_consensus_state` | Consensus progress | Height, round, step, vote participation |
 | `/health` | Node health check | Overall health status |
-| `/abci_query?path="/get/masternodes.total_votes"` | Governance totals | Total number of proposals available |
-| `/abci_query?path="/get/masternodes.votes:{id}"` | Governance proposal detail | Proposal type, arguments, vote counts, and voter addresses |
-
-## 🗳️ Governance Monitoring
-
-Validator nodes gain access to a detailed governance dashboard that complements the existing consensus metrics:
-
-- **Responsive proposal explorer** that adapts between a sortable table on desktop and stacked cards on mobile
-- **Per-proposal insights** covering type, decoded argument payloads, yes/no tallies, finalized status, and full voter breakdowns
-- **Pagination controls** to browse the full proposal history without overloading the node
-- **Manual refresh** to immediately pull in new proposals or votes when needed
-
-If the connected node is not acting as a validator, the UI surfaces helpful guidance instead of attempting unsupported queries.
 
 ## 🏗️ Project Structure
 
@@ -160,13 +146,11 @@ node-dashboard/
 │   │   ├── LoadingSpinner.tsx   # Loading component
 │   │   ├── MempoolCard.tsx      # Mempool overview
 │   │   ├── NetworkInfoCard.tsx  # Network connectivity
-│   │   ├── GovernanceCard.tsx   # Validator governance overview
 │   │   ├── NodeStatusCard.tsx   # Sync state and block height
 │   │   ├── StatusIndicator.tsx  # Shared status badge
 │   │   └── VersionInfoCard.tsx  # Version metadata
 │   ├── hooks/                   # Custom React hooks
-│   │   ├── useCometStatus.ts    # Status polling
-│   │   └── useGovernance.ts     # Governance proposal pagination and refresh logic
+│   │   └── useCometStatus.ts    # Status polling
 │   ├── services/                # API services
 │   │   └── cometbft.ts          # CometBFT API client
 │   ├── types/                   # TypeScript definitions
@@ -212,12 +196,6 @@ Main dashboard layout with responsive grid system for monitoring cards.
 - Validator status
 - Network connectivity health
 
-#### `GovernanceCard.tsx`
-- Validator-only governance proposal overview
-- Paginated yes/no vote tallies with finalization status
-- Decoded proposal arguments with JSON fallback rendering
-- Detailed voter lists with monospace formatting for addresses
-
 #### `ConsensusStateCard.tsx`
 - Consensus height, round, and step tracking
 - Prevote and precommit participation ratios
@@ -257,7 +235,6 @@ Centralized API service for all CometBFT REST API interactions:
 - Prevote and precommit participation ratios
 - Peer connection count
 - Network participation status
-- Governance proposal counts and vote tallies
 - API response times
 
 ### Error Detection
@@ -266,7 +243,6 @@ Centralized API service for all CometBFT REST API interactions:
 - Sync lag detection
 - Peer connectivity problems
 - Version compatibility checks
-- Governance query failures or validator misconfiguration
 
 ## 🚨 Troubleshooting
 
