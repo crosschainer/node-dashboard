@@ -15,9 +15,16 @@ import {
 import { buildNodeConnection, DEFAULT_NODE_ADDRESS } from '../utils/nodeConnection';
 import { normalizeConsensusStep } from '../utils/consensusSteps';
 
+const APP_HASH_DIVERGENCE_DELAY_MS = 5000;
+
 export class CometBFTService {
   private baseUrl: string;
   private timeout: number;
+  private appHashDivergenceCandidate: {
+    height: number;
+    firstDetectedAt: number;
+    confirmed: boolean;
+  } | null = null;
 
   constructor(baseUrl: string = buildNodeConnection(DEFAULT_NODE_ADDRESS).baseUrl, timeout: number = 10000) {
     this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
@@ -603,18 +610,50 @@ export class CometBFTService {
         : '';
 
       let hasDivergence = false;
+      let divergenceHeight: number | null = null;
 
       if (!Number.isNaN(abciHeight) && !Number.isNaN(commitHeight) && abciAppHash.length > 0) {
         if (commitHeight === abciHeight && commitAppHash.length > 0) {
           hasDivergence = commitAppHash !== abciAppHash;
+          divergenceHeight = commitHeight;
         } else if (commitHeight === abciHeight + 1 && commitLastResultsHash.length > 0) {
           hasDivergence = commitLastResultsHash !== abciAppHash;
+          divergenceHeight = commitHeight;
         }
       }
 
-      if (hasDivergence) {
-        health.hasErrors = true;
-        health.errorMessages.push('Possible app-hash divergence — see node logs.');
+      if (hasDivergence && divergenceHeight !== null) {
+        const now = Date.now();
+        let shouldReportDivergence = false;
+        const candidate = this.appHashDivergenceCandidate;
+
+        if (candidate && candidate.height === divergenceHeight) {
+          if (
+            candidate.confirmed
+            || now - candidate.firstDetectedAt >= APP_HASH_DIVERGENCE_DELAY_MS
+          ) {
+            shouldReportDivergence = true;
+            if (!candidate.confirmed) {
+              this.appHashDivergenceCandidate = {
+                ...candidate,
+                confirmed: true,
+              };
+            }
+          }
+        } else {
+          this.appHashDivergenceCandidate = {
+            height: divergenceHeight,
+            firstDetectedAt: now,
+            confirmed: false,
+          };
+        }
+
+        if (shouldReportDivergence) {
+          health.hasErrors = true;
+          health.errorMessages.push('Possible app-hash divergence — see node logs.');
+        }
+      } else {
+        this.appHashDivergenceCandidate = null;
       }
     }
 
