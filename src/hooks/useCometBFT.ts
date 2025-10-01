@@ -41,6 +41,7 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
         precommitRatio: null,
         issues: [],
       },
+      divergence: null,
     },
     loading: true,
     error: null,
@@ -125,6 +126,7 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
             precommitRatio: null,
             issues: [error instanceof Error ? error.message : 'Failed to fetch data'],
           },
+          divergence: null,
         },
         consensusHistory: prev.consensusHistory,
       }));

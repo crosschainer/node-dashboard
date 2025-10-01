@@ -278,6 +278,66 @@ export interface ConsensusParticipationSample {
   precommitRatio: number | null;
 }
 
+export interface BlockTxData {
+  txs?: (string | null | undefined)[] | null;
+}
+
+export interface BlockHeader {
+  height?: string | number | null;
+  app_hash?: string | null;
+  last_results_hash?: string | null;
+  [key: string]: unknown;
+}
+
+export interface BlockResult {
+  block?: {
+    header?: BlockHeader;
+    data?: BlockTxData | null;
+    [key: string]: unknown;
+  } | null;
+  block_id?: {
+    hash?: string | null;
+    [key: string]: unknown;
+  } | null;
+  [key: string]: unknown;
+}
+
+export interface BlockResponse {
+  jsonrpc: string;
+  id: number;
+  result: BlockResult;
+}
+
+export type DivergenceCause = 'app_hash' | 'last_results' | null;
+
+export interface DivergenceAnalysis {
+  blockHeight: number;
+  nodeAppHash: string | null;
+  referenceAppHash: string | null;
+  nodeBlockHash: string | null;
+  referenceBlockHash: string | null;
+  nodeTxCount: number;
+  referenceTxCount: number;
+  matchingTxCount: number;
+  missingTxs: string[];
+  unexpectedTxs: string[];
+  referenceNode: {
+    address: string;
+    rpcUrl: string;
+  };
+  lastUpdated: string;
+}
+
+export interface DivergenceHealthDetails {
+  height: number | null;
+  cause: DivergenceCause;
+  nodeAppHash: string | null;
+  abciAppHash: string | null;
+  nodeLastResultsHash: string | null;
+  analysis: DivergenceAnalysis | null;
+  analysisError: string | null;
+}
+
 export interface NodeHealth {
   isOnline: boolean;
   isSynced: boolean;
@@ -285,6 +345,7 @@ export interface NodeHealth {
   errorMessages: string[];
   lastUpdated: Date;
   consensus: ConsensusHealth;
+  divergence: DivergenceHealthDetails | null;
 }
 
 export type GovernanceArgument =

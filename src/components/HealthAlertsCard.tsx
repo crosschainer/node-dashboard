@@ -1,6 +1,7 @@
 
 import { Card } from './Card';
 import { StatusIndicator } from './StatusIndicator';
+import { DivergenceDetails } from './DivergenceDetails';
 import { DashboardData } from '../types/cometbft';
 
 interface HealthAlertsCardProps {
@@ -80,6 +81,10 @@ export function HealthAlertsCard({ data }: HealthAlertsCardProps) {
               ))}
             </div>
           </div>
+        )}
+
+        {health.divergence && (
+          <DivergenceDetails divergence={health.divergence} />
         )}
 
         {/* Health Summary */}

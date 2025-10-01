@@ -11,17 +11,73 @@ import {
   GovernanceProposal,
   GovernanceArgument,
   CommitResponse,
+  BlockResponse,
+  DivergenceAnalysis,
+  DivergenceHealthDetails,
 } from '../types/cometbft';
-import { buildNodeConnection, DEFAULT_NODE_ADDRESS } from '../utils/nodeConnection';
+import { buildNodeConnection, DEFAULT_NODE_ADDRESS, NodeConnection } from '../utils/nodeConnection';
 import { normalizeConsensusStep } from '../utils/consensusSteps';
+
+const FALLBACK_REFERENCE_NODE_ADDRESS = DEFAULT_NODE_ADDRESS;
+
+function resolveReferenceNodeAddress(): string {
+  try {
+    if (typeof import.meta !== 'undefined') {
+      const metaEnv = (import.meta as unknown as { env?: Record<string, unknown> }).env;
+      const candidate = metaEnv?.VITE_REFERENCE_NODE_ADDRESS;
+      if (typeof candidate === 'string' && candidate.trim().length > 0) {
+        return candidate.trim();
+      }
+    }
+  } catch (error) {
+    console.warn('Unable to read reference node from import.meta.env:', error);
+  }
+
+  if (typeof process !== 'undefined') {
+    const env = (process as unknown as { env?: Record<string, unknown> }).env;
+    const candidate = env?.VITE_REFERENCE_NODE_ADDRESS;
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+
+  return FALLBACK_REFERENCE_NODE_ADDRESS;
+}
+
+const DEFAULT_REFERENCE_NODE_ADDRESS = resolveReferenceNodeAddress();
+
+const DEFAULT_NODE_CONNECTION = buildNodeConnection(DEFAULT_NODE_ADDRESS);
+
+interface BlockSummary {
+  height: number;
+  appHash: string | null;
+  lastResultsHash: string | null;
+  blockHash: string | null;
+  txs: string[];
+}
 
 export class CometBFTService {
   private baseUrl: string;
   private timeout: number;
 
-  constructor(baseUrl: string = buildNodeConnection(DEFAULT_NODE_ADDRESS).baseUrl, timeout: number = 10000) {
-    this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
+  private referenceNode: NodeConnection;
+
+  private divergenceCache: Map<string, DivergenceAnalysis>;
+
+  constructor(
+    baseUrl: string = DEFAULT_NODE_CONNECTION.baseUrl,
+    timeout: number = 10000,
+    referenceNodeAddress: string = DEFAULT_REFERENCE_NODE_ADDRESS,
+  ) {
+    this.baseUrl = this.normalizeBaseUrl(baseUrl);
     this.timeout = timeout;
+    this.referenceNode = buildNodeConnection(referenceNodeAddress);
+    this.referenceNode.baseUrl = this.normalizeBaseUrl(this.referenceNode.baseUrl);
+    this.divergenceCache = new Map();
+  }
+
+  private normalizeBaseUrl(value: string): string {
+    return value.replace(/\/$/, '');
   }
 
   private buildAbciQueryUrl(path: string, data?: string): string {
@@ -59,6 +115,135 @@ export class CometBFTService {
       clearTimeout(timeoutId);
       throw error;
     }
+  }
+
+  private getReferenceBaseUrl(): string {
+    return this.normalizeBaseUrl(this.referenceNode.baseUrl);
+  }
+
+  private getDivergenceCacheKey(height: number): string {
+    return `${this.baseUrl}|${this.getReferenceBaseUrl()}|${height}`;
+  }
+
+  private buildTxFrequencyMap(txs: string[]): Map<string, number> {
+    const frequency = new Map<string, number>();
+    txs.forEach((tx) => {
+      const previous = frequency.get(tx) ?? 0;
+      frequency.set(tx, previous + 1);
+    });
+    return frequency;
+  }
+
+  private async fetchBlockSummary(baseUrl: string, height: number): Promise<BlockSummary> {
+    const safeHeight = Number.isFinite(height) ? Math.max(0, Math.trunc(height)) : 0;
+    const normalizedBase = this.normalizeBaseUrl(baseUrl);
+    const response = await this.fetchWithTimeout(`${normalizedBase}/block?height=${encodeURIComponent(String(safeHeight))}`);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const payload = await response.json() as BlockResponse;
+    const result = payload?.result ?? {};
+    const block = result.block ?? {};
+    const header = block?.header ?? {};
+    const rawHeight = header?.height;
+
+    let parsedHeight = safeHeight;
+    if (typeof rawHeight === 'number' && Number.isFinite(rawHeight)) {
+      parsedHeight = rawHeight;
+    } else if (typeof rawHeight === 'string' && rawHeight.trim().length > 0) {
+      const numeric = Number.parseInt(rawHeight.trim(), 10);
+      if (Number.isFinite(numeric)) {
+        parsedHeight = numeric;
+      }
+    }
+
+    const rawTxs = Array.isArray(block?.data?.txs) ? block.data?.txs ?? [] : [];
+    const txs = rawTxs
+      .filter((tx): tx is string => typeof tx === 'string' && tx.trim().length > 0)
+      .map((tx) => tx.trim());
+
+    const appHash = typeof header?.app_hash === 'string' ? header.app_hash.trim() : null;
+    const lastResultsHash = typeof header?.last_results_hash === 'string'
+      ? header.last_results_hash.trim()
+      : null;
+    const blockHash = typeof result?.block_id?.hash === 'string'
+      ? result.block_id.hash.trim()
+      : null;
+
+    return {
+      height: parsedHeight,
+      appHash,
+      lastResultsHash,
+      blockHash,
+      txs,
+    };
+  }
+
+  private async computeDivergenceAnalysis(height: number): Promise<DivergenceAnalysis> {
+    const safeHeight = Number.isFinite(height) ? Math.max(0, Math.trunc(height)) : 0;
+    const cacheKey = this.getDivergenceCacheKey(safeHeight);
+    const cached = this.divergenceCache.get(cacheKey);
+
+    if (cached) {
+      return cached;
+    }
+
+    const [nodeSummary, referenceSummary] = await Promise.all([
+      this.fetchBlockSummary(this.baseUrl, safeHeight),
+      this.fetchBlockSummary(this.getReferenceBaseUrl(), safeHeight),
+    ]);
+
+    const nodeFrequency = this.buildTxFrequencyMap(nodeSummary.txs);
+    const referenceFrequency = this.buildTxFrequencyMap(referenceSummary.txs);
+
+    const missingTxs: string[] = [];
+    referenceFrequency.forEach((count, tx) => {
+      const nodeCount = nodeFrequency.get(tx) ?? 0;
+      if (count > nodeCount) {
+        for (let index = 0; index < count - nodeCount; index += 1) {
+          missingTxs.push(tx);
+        }
+      }
+    });
+
+    const unexpectedTxs: string[] = [];
+    nodeFrequency.forEach((count, tx) => {
+      const referenceCount = referenceFrequency.get(tx) ?? 0;
+      if (count > referenceCount) {
+        for (let index = 0; index < count - referenceCount; index += 1) {
+          unexpectedTxs.push(tx);
+        }
+      }
+    });
+
+    let matchingTxCount = 0;
+    referenceFrequency.forEach((count, tx) => {
+      const nodeCount = nodeFrequency.get(tx) ?? 0;
+      matchingTxCount += Math.min(count, nodeCount);
+    });
+
+    const analysis: DivergenceAnalysis = {
+      blockHeight: nodeSummary.height,
+      nodeAppHash: nodeSummary.appHash,
+      referenceAppHash: referenceSummary.appHash,
+      nodeBlockHash: nodeSummary.blockHash,
+      referenceBlockHash: referenceSummary.blockHash,
+      nodeTxCount: nodeSummary.txs.length,
+      referenceTxCount: referenceSummary.txs.length,
+      matchingTxCount,
+      missingTxs,
+      unexpectedTxs,
+      referenceNode: {
+        address: this.referenceNode.inputValue,
+        rpcUrl: this.referenceNode.rpcUrl,
+      },
+      lastUpdated: new Date().toISOString(),
+    };
+
+    this.divergenceCache.set(cacheKey, analysis);
+    return analysis;
   }
 
   private decodeBase64Value(value: string | null | undefined): string | null {
@@ -520,7 +705,7 @@ export class CometBFTService {
 
   private analyzeNodeHealth(
     status: StatusResponse | null,
-    netInfo: NetInfoResponse | null,
+    _netInfo: NetInfoResponse | null,
     consensusState: ConsensusStateResponse | null,
     abciInfo: ABCIInfoResponse | null,
     commit: CommitResponse | null,
@@ -540,6 +725,7 @@ export class CometBFTService {
         precommitRatio: null,
         issues: [],
       },
+      divergence: null,
     };
 
     if (!status) {
@@ -604,18 +790,39 @@ export class CometBFTService {
         : '';
 
       let hasDivergence = false;
+      let divergenceHeight: number | null = null;
+      let divergenceCause: DivergenceHealthDetails['cause'] = null;
 
       if (!Number.isNaN(abciHeight) && !Number.isNaN(commitHeight) && abciAppHash.length > 0) {
         if (commitHeight === abciHeight && commitAppHash.length > 0) {
           hasDivergence = commitAppHash !== abciAppHash;
+          if (hasDivergence) {
+            divergenceHeight = commitHeight;
+            divergenceCause = 'app_hash';
+          }
         } else if (commitHeight === abciHeight + 1 && commitLastResultsHash.length > 0) {
           hasDivergence = commitLastResultsHash !== abciAppHash;
+          if (hasDivergence) {
+            divergenceHeight = abciHeight;
+            divergenceCause = 'last_results';
+          }
         }
       }
 
       if (hasDivergence) {
         health.hasErrors = true;
         health.errorMessages.push('Possible app-hash divergence — see node logs.');
+        health.divergence = {
+          height: Number.isFinite(divergenceHeight ?? NaN) ? divergenceHeight : null,
+          cause: divergenceCause,
+          nodeAppHash: commitAppHash.length > 0 ? commitAppHash : null,
+          abciAppHash: abciAppHash.length > 0 ? abciAppHash : null,
+          nodeLastResultsHash: commitLastResultsHash.length > 0 ? commitLastResultsHash : null,
+          analysis: null,
+          analysisError: null,
+        };
+      } else {
+        health.divergence = null;
       }
     }
 
@@ -647,6 +854,7 @@ export class CometBFTService {
           precommitRatio: null,
           issues: [],
         },
+        divergence: null,
       },
       loading: true,
       error: null,
@@ -732,6 +940,46 @@ export class CometBFTService {
         data.abciInfo,
         data.commit,
       );
+
+      const divergenceDetails = data.health.divergence;
+      if (divergenceDetails && divergenceDetails.height !== null) {
+        try {
+          const analysis = await this.computeDivergenceAnalysis(divergenceDetails.height);
+          const mergedDetails: DivergenceHealthDetails = {
+            ...divergenceDetails,
+            height: divergenceDetails.height ?? analysis.blockHeight,
+            nodeAppHash: divergenceDetails.nodeAppHash ?? analysis.nodeAppHash,
+            analysis,
+            analysisError: null,
+          };
+
+          data.health.divergence = mergedDetails;
+
+          const missingCount = analysis.missingTxs.length;
+          const unexpectedCount = analysis.unexpectedTxs.length;
+          const referenceLabel = analysis.referenceNode.address || analysis.referenceNode.rpcUrl;
+
+          const summaryMessage = missingCount > 0 || unexpectedCount > 0
+            ? `Block ${analysis.blockHeight} differs from reference node ${referenceLabel}: ${missingCount} missing tx${missingCount === 1 ? '' : 's'}, ${unexpectedCount} unexpected tx${unexpectedCount === 1 ? '' : 's'}.`
+            : `Block ${analysis.blockHeight} matches reference node ${referenceLabel} transactions. Investigate ABCI app state for divergence.`;
+
+          data.health.errorMessages.push(summaryMessage);
+          data.health.hasErrors = true;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          const formattedMessage = `Failed to analyse divergence at height ${divergenceDetails.height}: ${message}`;
+          data.health.errorMessages.push(formattedMessage);
+          data.health.hasErrors = true;
+          data.health.divergence = {
+            ...divergenceDetails,
+            analysis: null,
+            analysisError: formattedMessage,
+          };
+        }
+
+        data.health.errorMessages = Array.from(new Set(data.health.errorMessages));
+      }
+
       data.health.lastUpdated = new Date();
       data.loading = false;
 
@@ -753,6 +1001,7 @@ export class CometBFTService {
           precommitRatio: null,
           issues: [data.error],
         },
+        divergence: null,
       };
       data.consensusHistory = [];
     }
@@ -761,7 +1010,23 @@ export class CometBFTService {
   }
 
   setBaseUrl(url: string) {
-    this.baseUrl = url.replace(/\/$/, '');
+    this.baseUrl = this.normalizeBaseUrl(url);
+    this.divergenceCache.clear();
+  }
+
+  setReferenceNode(address: string) {
+    if (!address || address.trim().length === 0) {
+      return;
+    }
+
+    const connection = buildNodeConnection(address);
+    connection.baseUrl = this.normalizeBaseUrl(connection.baseUrl);
+    this.referenceNode = connection;
+    this.divergenceCache.clear();
+  }
+
+  getReferenceNode(): NodeConnection {
+    return this.referenceNode;
   }
 
   getBaseUrl(): string {
