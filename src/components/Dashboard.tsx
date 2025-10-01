@@ -159,7 +159,7 @@ export function Dashboard() {
           Xian Node Dashboard - Real-time monitoring for CometBFT 0.38.12 nodes
         </p>
         <p className="dashboard-footer__meta">
-          Auto-refresh every 5 seconds • Built with React & TypeScript
+          Built with React & TypeScript
         </p>
       </footer>
     </div>
