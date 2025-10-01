@@ -180,9 +180,9 @@ export function Header({
             <div
               style={{
                 display: 'flex',
-                alignItems: 'flex-start',
+                alignItems: 'center',
                 gap: 'var(--space-2)',
-                flexDirection: 'column'
+                flexDirection: 'row'
               }}
             >
               <span style={{
@@ -217,15 +217,7 @@ export function Header({
                 <PencilIcon size={14} style={{ flexShrink: 0 }} />
                 {nodeAddress || 'Configure node'}
               </button>
-              <span
-                style={{
-                  fontSize: 'var(--text-xs)',
-                  color: 'var(--text-muted)',
-                  fontFamily: 'var(--font-mono)'
-                }}
-              >
-                RPC endpoint: {nodeRpcUrl}
-              </span>
+             
             </div>
           )}
         </div>
