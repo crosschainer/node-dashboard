@@ -11,9 +11,10 @@ export function HealthAlertsCard({ data }: HealthAlertsCardProps) {
   const { health } = data;
 
   const mempoolWarnings: string[] = [];
-  const pendingTxs = data.mempool ? parseInt(data.mempool.result.n_txs, 10) || 0 : 0;
+  const mempoolCounts = data.mempoolStats?.result ?? data.mempool?.result;
+  const pendingTxs = mempoolCounts ? parseInt(mempoolCounts.n_txs, 10) || 0 : 0;
 
-  if (!data.loading && data.mempool == null) {
+  if (!data.loading && !data.mempoolStats && !data.mempool) {
     mempoolWarnings.push('Mempool data unavailable');
   } else if (pendingTxs > 200) {
     mempoolWarnings.push('Severe mempool backlog detected (200+ pending transactions)');

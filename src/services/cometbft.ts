@@ -3,6 +3,7 @@ import {
   NetInfoResponse,
   ABCIInfoResponse,
   UnconfirmedTxsResponse,
+  NumUnconfirmedTxsResponse,
   ConsensusStateResponse,
   NodeHealth,
   DashboardData,
@@ -274,6 +275,18 @@ export class CometBFTService {
       return await response.json();
     } catch (error) {
       throw new Error(`Failed to fetch mempool data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  async getNumUnconfirmedTxs(): Promise<NumUnconfirmedTxsResponse> {
+    try {
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/num_unconfirmed_txs`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      throw new Error(`Failed to fetch mempool totals: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -687,6 +700,7 @@ export class CometBFTService {
       abciInfo: null,
       commit: null,
       mempool: null,
+      mempoolStats: null,
       health: {
         isOnline: false,
         isSynced: false,
@@ -713,11 +727,20 @@ export class CometBFTService {
 
     try {
       // Fetch all data in parallel
-      const [status, netInfo, abciInfo, mempool, consensusState, graphqlAvailability] = await Promise.allSettled([
+      const [
+        status,
+        netInfo,
+        abciInfo,
+        mempool,
+        mempoolStats,
+        consensusState,
+        graphqlAvailability,
+      ] = await Promise.allSettled([
         this.getStatus(),
         this.getNetInfo(),
         this.getABCIInfo(),
         this.getUnconfirmedTxs(),
+        this.getNumUnconfirmedTxs(),
         this.getConsensusState(),
         this.checkGraphqlAvailability(),
       ]);
@@ -748,6 +771,12 @@ export class CometBFTService {
         data.mempool = mempool.value;
       } else {
         console.warn('Mempool info error:', mempool.reason);
+      }
+
+      if (mempoolStats.status === 'fulfilled') {
+        data.mempoolStats = mempoolStats.value;
+      } else {
+        console.warn('Mempool totals error:', mempoolStats.reason);
       }
 
       if (consensusState.status === 'fulfilled') {

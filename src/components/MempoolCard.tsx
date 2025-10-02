@@ -27,7 +27,7 @@ export function MempoolCard({ data }: MempoolCardProps) {
     );
   }
 
-  if (!data.mempool) {
+  if (!data.mempool && !data.mempoolStats) {
     return (
       <Card title="Mempool Activity">
         <p style={{ color: 'var(--text-error)' }}>Unable to load mempool information.</p>
@@ -35,12 +35,13 @@ export function MempoolCard({ data }: MempoolCardProps) {
     );
   }
 
-  const mempool = data.mempool.result;
-  const txCount = parseInt(mempool.n_txs, 10) || 0;
-  const total = parseInt(mempool.total, 10) || txCount;
-  const totalBytes = parseInt(mempool.total_bytes, 10) || 0;
+  const mempoolCounts = data.mempoolStats?.result ?? data.mempool?.result;
+  const txCount = mempoolCounts ? parseInt(mempoolCounts.n_txs, 10) || 0 : 0;
+  const total = mempoolCounts ? parseInt(mempoolCounts.total, 10) || txCount : txCount;
+  const totalBytes = mempoolCounts ? parseInt(mempoolCounts.total_bytes, 10) || 0 : 0;
   const avgSize = txCount > 0 ? Math.round(totalBytes / txCount) : 0;
-  const topTxs = mempool.txs.slice(0, 5);
+  const allTxs = data.mempool?.result.txs ?? [];
+  const topTxs = allTxs.slice(0, 5);
 
   let loadStatus: 'success' | 'warning' | 'error' = 'success';
   if (txCount > 100) {
@@ -77,7 +78,7 @@ export function MempoolCard({ data }: MempoolCardProps) {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--space-3)' }}>
           <div>
-            <strong style={{ color: 'var(--text-primary)' }}>Total processed:</strong>
+            <strong style={{ color: 'var(--text-primary)' }}>Total queued:</strong>
             <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>{total}</div>
           </div>
           <div>
@@ -125,9 +126,14 @@ export function MempoolCard({ data }: MempoolCardProps) {
               ))}
             </div>
           )}
-          {mempool.txs.length > topTxs.length && (
+          {allTxs.length > topTxs.length && (
             <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-2)' }}>
-              Showing {topTxs.length} of {mempool.txs.length} queued transactions.
+              Showing {topTxs.length} of {allTxs.length} queued transactions.
+            </p>
+          )}
+          {!data.mempool && data.mempoolStats && (
+            <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-2)' }}>
+              Transaction payloads are unavailable from this RPC, but queue totals are live.
             </p>
           )}
         </div>

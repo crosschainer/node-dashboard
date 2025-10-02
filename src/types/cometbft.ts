@@ -117,15 +117,24 @@ export interface ABCIInfoResponse {
   };
 }
 
+export interface MempoolTotals {
+  n_txs: string;
+  total: string;
+  total_bytes: string;
+}
+
 export interface UnconfirmedTxsResponse {
   jsonrpc: string;
   id: number;
-  result: {
-    n_txs: string;
-    total: string;
-    total_bytes: string;
+  result: MempoolTotals & {
     txs: string[];
   };
+}
+
+export interface NumUnconfirmedTxsResponse {
+  jsonrpc: string;
+  id: number;
+  result: MempoolTotals;
 }
 
 export interface ABCIQueryResponse {
@@ -324,6 +333,7 @@ export interface DashboardData {
   abciInfo: ABCIInfoResponse | null;
   commit: CommitResponse | null;
   mempool: UnconfirmedTxsResponse | null;
+  mempoolStats: NumUnconfirmedTxsResponse | null;
   consensusState: ConsensusStateResponse | null;
   health: NodeHealth;
   loading: boolean;

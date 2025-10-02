@@ -27,6 +27,7 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
     abciInfo: null,
     commit: null,
     mempool: null,
+    mempoolStats: null,
     consensusState: null,
     health: {
       isOnline: false,
@@ -130,7 +131,7 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
 
         const mempoolDepthHistory = (() => {
           const existing = [...previous.mempoolDepthHistory];
-          const mempoolInfo = newData.mempool?.result;
+          const mempoolInfo = newData.mempoolStats?.result ?? newData.mempool?.result;
 
           if (!mempoolInfo) {
             return existing;
