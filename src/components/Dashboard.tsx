@@ -4,7 +4,6 @@ import { NodeStatusCard } from './NodeStatusCard';
 import { HealthAlertsCard } from './HealthAlertsCard';
 import { ConsensusStateCard } from './ConsensusStateCard';
 import { NetworkInfoCard } from './NetworkInfoCard';
-import { MempoolCard } from './MempoolCard';
 import { VersionInfoCard } from './VersionInfoCard';
 import { useCometBFT } from '../hooks/useCometBFT';
 import { buildNodeConnection, DEFAULT_NODE_ADDRESS } from '../utils/nodeConnection';
@@ -42,7 +41,7 @@ export function Dashboard() {
     {
       id: 'network',
       label: 'Network activity',
-      description: 'Peer connectivity, throughput and mempool insights',
+      description: 'Peer connectivity and throughput insights',
     },
   ];
 
@@ -139,15 +138,12 @@ export function Dashboard() {
             <div className="dashboard-section__header">
               <h2 className="dashboard-section__title">Network activity</h2>
               <p className="dashboard-section__subtitle">
-                Peer connectivity, throughput and mempool insights
+                Peer connectivity and throughput insights
               </p>
             </div>
             <div className="dashboard-grid">
               <div className="dashboard-item">
                 <NetworkInfoCard data={data} />
-              </div>
-              <div className="dashboard-item">
-                <MempoolCard data={data} />
               </div>
             </div>
           </section>

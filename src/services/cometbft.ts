@@ -2,7 +2,6 @@ import {
   StatusResponse,
   NetInfoResponse,
   ABCIInfoResponse,
-  UnconfirmedTxsResponse,
   ConsensusStateResponse,
   NodeHealth,
   DashboardData,
@@ -262,18 +261,6 @@ export class CometBFTService {
       return await response.json();
     } catch (error) {
       throw new Error(`Failed to fetch commit: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  async getUnconfirmedTxs(limit: number = 100): Promise<UnconfirmedTxsResponse> {
-    try {
-      const response = await this.fetchWithTimeout(`${this.baseUrl}/unconfirmed_txs?limit=${limit}`);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      return await response.json();
-    } catch (error) {
-      throw new Error(`Failed to fetch mempool data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -686,7 +673,6 @@ export class CometBFTService {
       netInfo: null,
       abciInfo: null,
       commit: null,
-      mempool: null,
       health: {
         isOnline: false,
         isSynced: false,
@@ -712,11 +698,10 @@ export class CometBFTService {
 
     try {
       // Fetch all data in parallel
-      const [status, netInfo, abciInfo, mempool, consensusState, graphqlAvailability] = await Promise.allSettled([
+      const [status, netInfo, abciInfo, consensusState, graphqlAvailability] = await Promise.allSettled([
         this.getStatus(),
         this.getNetInfo(),
         this.getABCIInfo(),
-        this.getUnconfirmedTxs(),
         this.getConsensusState(),
         this.checkGraphqlAvailability(),
       ]);
@@ -740,13 +725,6 @@ export class CometBFTService {
         data.abciInfo = abciInfo.value;
       } else {
         console.warn('ABCI info error:', abciInfo.reason);
-      }
-
-      // Handle mempool info
-      if (mempool.status === 'fulfilled') {
-        data.mempool = mempool.value;
-      } else {
-        console.warn('Mempool info error:', mempool.reason);
       }
 
       if (consensusState.status === 'fulfilled') {

@@ -26,7 +26,6 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
     netInfo: null,
     abciInfo: null,
     commit: null,
-    mempool: null,
     consensusState: null,
     health: {
       isOnline: false,
