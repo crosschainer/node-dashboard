@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { DashboardData, ConsensusParticipationSample } from '../types/cometbft';
+import {
+  DashboardData,
+  ConsensusParticipationSample,
+  BlockTimeSample,
+  PeerCountSample,
+  MempoolDepthSample,
+} from '../types/cometbft';
 import { cometbftService } from '../services/cometbft';
 
 interface UseCometBFTOptions {
@@ -48,6 +54,9 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
     loading: true,
     error: null,
     consensusHistory: [],
+    blockTimeHistory: [],
+    peerCountHistory: [],
+    mempoolDepthHistory: [],
   });
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -102,9 +111,169 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
           }
         }
 
+        const blockTimeHistory = (() => {
+          const existing = [...previous.blockTimeHistory];
+          const syncInfo = newData.status?.result?.sync_info;
+
+          if (!syncInfo) {
+            return existing;
+          }
+
+          const heightValue = typeof syncInfo.latest_block_height === 'string'
+            ? Number.parseInt(syncInfo.latest_block_height, 10)
+            : Number.NaN;
+          const blockHeight = Number.isFinite(heightValue) ? heightValue : null;
+          const blockTimestamp = typeof syncInfo.latest_block_time === 'string'
+            ? syncInfo.latest_block_time
+            : null;
+
+          const lastEntry = existing[existing.length - 1];
+          const isDuplicate = lastEntry
+            && lastEntry.blockHeight === blockHeight
+            && lastEntry.blockTimestamp === blockTimestamp;
+
+          if (isDuplicate) {
+            return existing;
+          }
+
+          let blockIntervalMs: number | null = null;
+
+          if (blockTimestamp) {
+            const currentTime = new Date(blockTimestamp);
+            if (!Number.isNaN(currentTime.getTime()) && lastEntry?.blockTimestamp) {
+              const previousTime = new Date(lastEntry.blockTimestamp);
+              if (!Number.isNaN(previousTime.getTime())) {
+                const delta = currentTime.getTime() - previousTime.getTime();
+                if (Number.isFinite(delta) && delta >= 0) {
+                  const hasAdvancedHeight = blockHeight !== null
+                    && lastEntry.blockHeight !== null
+                    ? blockHeight > lastEntry.blockHeight
+                    : true;
+
+                  blockIntervalMs = hasAdvancedHeight ? delta : null;
+                }
+              }
+            }
+          }
+
+          const sampleEntry: BlockTimeSample = {
+            timestamp: new Date().toISOString(),
+            blockHeight,
+            blockTimestamp,
+            blockIntervalMs,
+          };
+
+          existing.push(sampleEntry);
+
+          const maxSamples = 50;
+          if (existing.length > maxSamples) {
+            existing.splice(0, existing.length - maxSamples);
+          }
+
+          return existing;
+        })();
+
+        const peerCountHistory = (() => {
+          const existing = [...previous.peerCountHistory];
+          const netInfo = newData.netInfo?.result;
+
+          if (!netInfo) {
+            return existing;
+          }
+
+          const peerList = Array.isArray(netInfo.peers) ? netInfo.peers : [];
+          const inboundPeers = peerList.filter((peer) => !peer.is_outbound).length;
+          const outboundPeers = peerList.filter((peer) => peer.is_outbound).length;
+
+          const totalPeersValue = typeof netInfo.n_peers === 'string'
+            ? Number.parseInt(netInfo.n_peers, 10)
+            : Number.NaN;
+          const totalPeers = Number.isFinite(totalPeersValue)
+            ? totalPeersValue
+            : peerList.length;
+
+          const lastEntry = existing[existing.length - 1];
+          const isDuplicate = lastEntry
+            && lastEntry.totalPeers === totalPeers
+            && lastEntry.inboundPeers === inboundPeers
+            && lastEntry.outboundPeers === outboundPeers;
+
+          if (isDuplicate) {
+            return existing;
+          }
+
+          const sampleEntry: PeerCountSample = {
+            timestamp: new Date().toISOString(),
+            totalPeers: Number.isFinite(totalPeers) ? totalPeers : null,
+            inboundPeers,
+            outboundPeers,
+          };
+
+          existing.push(sampleEntry);
+
+          const maxSamples = 50;
+          if (existing.length > maxSamples) {
+            existing.splice(0, existing.length - maxSamples);
+          }
+
+          return existing;
+        })();
+
+        const mempoolDepthHistory = (() => {
+          const existing = [...previous.mempoolDepthHistory];
+          const mempoolInfo = newData.mempool?.result;
+
+          if (!mempoolInfo) {
+            return existing;
+          }
+
+          const totalTxsValue = typeof mempoolInfo.total === 'string'
+            ? Number.parseInt(mempoolInfo.total, 10)
+            : Number.NaN;
+          const pendingTxsValue = typeof mempoolInfo.n_txs === 'string'
+            ? Number.parseInt(mempoolInfo.n_txs, 10)
+            : Number.NaN;
+          const totalBytesValue = typeof mempoolInfo.total_bytes === 'string'
+            ? Number.parseInt(mempoolInfo.total_bytes, 10)
+            : Number.NaN;
+
+          const totalTxs = Number.isFinite(totalTxsValue) ? totalTxsValue : null;
+          const pendingTxs = Number.isFinite(pendingTxsValue) ? pendingTxsValue : null;
+          const totalBytes = Number.isFinite(totalBytesValue) ? totalBytesValue : null;
+
+          const lastEntry = existing[existing.length - 1];
+          const isDuplicate = lastEntry
+            && lastEntry.totalTxs === totalTxs
+            && lastEntry.pendingTxs === pendingTxs
+            && lastEntry.totalBytes === totalBytes;
+
+          if (isDuplicate) {
+            return existing;
+          }
+
+          const sampleEntry: MempoolDepthSample = {
+            timestamp: new Date().toISOString(),
+            totalTxs,
+            totalBytes,
+            pendingTxs,
+          };
+
+          existing.push(sampleEntry);
+
+          const maxSamples = 50;
+          if (existing.length > maxSamples) {
+            existing.splice(0, existing.length - maxSamples);
+          }
+
+          return existing;
+        })();
+
         return {
           ...newData,
           consensusHistory: history,
+          blockTimeHistory,
+          peerCountHistory,
+          mempoolDepthHistory,
         };
       });
     } catch (error) {
@@ -132,6 +301,9 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
           graphqlEnabled: null,
         },
         consensusHistory: prev.consensusHistory,
+        blockTimeHistory: prev.blockTimeHistory,
+        peerCountHistory: prev.peerCountHistory,
+        mempoolDepthHistory: prev.mempoolDepthHistory,
       }));
     }
   }, [nodeUrl]);

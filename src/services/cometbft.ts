@@ -708,6 +708,9 @@ export class CometBFTService {
       error: null,
       consensusState: null,
       consensusHistory: [],
+      blockTimeHistory: [],
+      peerCountHistory: [],
+      mempoolDepthHistory: [],
     };
 
     try {

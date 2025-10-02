@@ -278,6 +278,27 @@ export interface ConsensusParticipationSample {
   precommitRatio: number | null;
 }
 
+export interface BlockTimeSample {
+  timestamp: string;
+  blockHeight: number | null;
+  blockTimestamp: string | null;
+  blockIntervalMs: number | null;
+}
+
+export interface PeerCountSample {
+  timestamp: string;
+  totalPeers: number | null;
+  inboundPeers: number | null;
+  outboundPeers: number | null;
+}
+
+export interface MempoolDepthSample {
+  timestamp: string;
+  totalTxs: number | null;
+  totalBytes: number | null;
+  pendingTxs: number | null;
+}
+
 export interface NodeHealth {
   isOnline: boolean;
   isSynced: boolean;
@@ -324,4 +345,7 @@ export interface DashboardData {
   loading: boolean;
   error: string | null;
   consensusHistory: ConsensusParticipationSample[];
+  blockTimeHistory: BlockTimeSample[];
+  peerCountHistory: PeerCountSample[];
+  mempoolDepthHistory: MempoolDepthSample[];
 }

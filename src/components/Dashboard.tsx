@@ -8,6 +8,10 @@ import { MempoolCard } from './MempoolCard';
 import { VersionInfoCard } from './VersionInfoCard';
 import { useCometBFT } from '../hooks/useCometBFT';
 import { buildNodeConnection, DEFAULT_NODE_ADDRESS } from '../utils/nodeConnection';
+import { ConsensusParticipationCard } from './ConsensusParticipationCard';
+import { BlockTimeTrendCard } from './BlockTimeTrendCard';
+import { PeerConnectivityTrendCard } from './PeerConnectivityTrendCard';
+import { MempoolDepthTrendCard } from './MempoolDepthTrendCard';
 
 type DashboardTab = 'overview' | 'health' | 'network';
 
@@ -125,6 +129,12 @@ export function Dashboard() {
               <div className="dashboard-item">
                 <ConsensusStateCard data={data} />
               </div>
+              <div className="dashboard-item">
+                <ConsensusParticipationCard data={data} />
+              </div>
+              <div className="dashboard-item">
+                <BlockTimeTrendCard data={data} />
+              </div>
             </div>
           </section>
         )}
@@ -148,6 +158,12 @@ export function Dashboard() {
               </div>
               <div className="dashboard-item">
                 <MempoolCard data={data} />
+              </div>
+              <div className="dashboard-item">
+                <PeerConnectivityTrendCard data={data} />
+              </div>
+              <div className="dashboard-item">
+                <MempoolDepthTrendCard data={data} />
               </div>
             </div>
           </section>
