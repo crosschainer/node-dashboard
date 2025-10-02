@@ -1,11 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  DashboardData,
-  ConsensusParticipationSample,
-  BlockTimeSample,
-  PeerCountSample,
-  MempoolDepthSample,
-} from '../types/cometbft';
+import { DashboardData, BlockTimeSample, MempoolDepthSample } from '../types/cometbft';
 import { cometbftService } from '../services/cometbft';
 
 interface UseCometBFTOptions {
@@ -19,7 +13,7 @@ interface UseCometBFTOptions {
 
 export function useCometBFT(options: UseCometBFTOptions = {}) {
   const {
-    refreshInterval = 5000, // 5 seconds for full refresh
+    refreshInterval = 2000, // 2 seconds for full refresh to keep mempool reactive
     autoRefresh = true,
     nodeUrl,
     consensusRefreshInterval = 1000,
@@ -53,9 +47,7 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
     },
     loading: true,
     error: null,
-    consensusHistory: [],
     blockTimeHistory: [],
-    peerCountHistory: [],
     mempoolDepthHistory: [],
   });
 
@@ -73,44 +65,7 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
   const fetchData = useCallback(async () => {
     try {
       const newData = await cometbftService.getAllData();
-      const sample: ConsensusParticipationSample | null = (() => {
-        if (!newData.consensusState) {
-          return null;
-        }
-
-        const consensus = newData.health.consensus;
-        return {
-          timestamp: new Date().toISOString(),
-          height: consensus.height,
-          round: consensus.round,
-          step: consensus.step,
-          prevoteRatio: consensus.prevoteRatio,
-          precommitRatio: consensus.precommitRatio,
-        };
-      })();
-
       setData((previous) => {
-        const history = [...previous.consensusHistory];
-
-        if (sample) {
-          const lastEntry = history[history.length - 1];
-          const isDuplicate =
-            lastEntry
-            && lastEntry.height === sample.height
-            && lastEntry.round === sample.round
-            && lastEntry.prevoteRatio === sample.prevoteRatio
-            && lastEntry.precommitRatio === sample.precommitRatio;
-
-          if (!isDuplicate) {
-            history.push(sample);
-          }
-
-          const maxSamples = 50;
-          if (history.length > maxSamples) {
-            history.splice(0, history.length - maxSamples);
-          }
-        }
-
         const blockTimeHistory = (() => {
           const existing = [...previous.blockTimeHistory];
           const syncInfo = newData.status?.result?.sync_info;
@@ -161,52 +116,6 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
             blockHeight,
             blockTimestamp,
             blockIntervalMs,
-          };
-
-          existing.push(sampleEntry);
-
-          const maxSamples = 50;
-          if (existing.length > maxSamples) {
-            existing.splice(0, existing.length - maxSamples);
-          }
-
-          return existing;
-        })();
-
-        const peerCountHistory = (() => {
-          const existing = [...previous.peerCountHistory];
-          const netInfo = newData.netInfo?.result;
-
-          if (!netInfo) {
-            return existing;
-          }
-
-          const peerList = Array.isArray(netInfo.peers) ? netInfo.peers : [];
-          const inboundPeers = peerList.filter((peer) => !peer.is_outbound).length;
-          const outboundPeers = peerList.filter((peer) => peer.is_outbound).length;
-
-          const totalPeersValue = typeof netInfo.n_peers === 'string'
-            ? Number.parseInt(netInfo.n_peers, 10)
-            : Number.NaN;
-          const totalPeers = Number.isFinite(totalPeersValue)
-            ? totalPeersValue
-            : peerList.length;
-
-          const lastEntry = existing[existing.length - 1];
-          const isDuplicate = lastEntry
-            && lastEntry.totalPeers === totalPeers
-            && lastEntry.inboundPeers === inboundPeers
-            && lastEntry.outboundPeers === outboundPeers;
-
-          if (isDuplicate) {
-            return existing;
-          }
-
-          const sampleEntry: PeerCountSample = {
-            timestamp: new Date().toISOString(),
-            totalPeers: Number.isFinite(totalPeers) ? totalPeers : null,
-            inboundPeers,
-            outboundPeers,
           };
 
           existing.push(sampleEntry);
@@ -270,9 +179,7 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
 
         return {
           ...newData,
-          consensusHistory: history,
           blockTimeHistory,
-          peerCountHistory,
           mempoolDepthHistory,
         };
       });
@@ -300,9 +207,7 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
           },
           graphqlEnabled: null,
         },
-        consensusHistory: prev.consensusHistory,
         blockTimeHistory: prev.blockTimeHistory,
-        peerCountHistory: prev.peerCountHistory,
         mempoolDepthHistory: prev.mempoolDepthHistory,
       }));
     }
@@ -327,46 +232,9 @@ export function useCometBFT(options: UseCometBFTOptions = {}) {
           ? Array.from(new Set([...nonConsensusErrors, ...consensusHealth.issues]))
           : nonConsensusErrors;
 
-        const history = (() => {
-          if (!consensusState) {
-            return previous.consensusHistory;
-          }
-
-          const sample: ConsensusParticipationSample = {
-            timestamp: new Date().toISOString(),
-            height: consensusHealth.height,
-            round: consensusHealth.round,
-            step: consensusHealth.step,
-            prevoteRatio: consensusHealth.prevoteRatio,
-            precommitRatio: consensusHealth.precommitRatio,
-          };
-
-          const existing = [...previous.consensusHistory];
-          const lastEntry = existing[existing.length - 1];
-          const isDuplicate =
-            lastEntry
-            && lastEntry.height === sample.height
-            && lastEntry.round === sample.round
-            && lastEntry.step === sample.step
-            && lastEntry.prevoteRatio === sample.prevoteRatio
-            && lastEntry.precommitRatio === sample.precommitRatio;
-
-          if (!isDuplicate) {
-            existing.push(sample);
-          }
-
-          const maxSamples = 50;
-          if (existing.length > maxSamples) {
-            existing.splice(0, existing.length - maxSamples);
-          }
-
-          return existing;
-        })();
-
         return {
           ...previous,
           consensusState,
-          consensusHistory: history,
           health: {
             ...previous.health,
             hasErrors: combinedErrors.length > 0,

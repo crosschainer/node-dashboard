@@ -8,9 +8,7 @@ import { MempoolCard } from './MempoolCard';
 import { VersionInfoCard } from './VersionInfoCard';
 import { useCometBFT } from '../hooks/useCometBFT';
 import { buildNodeConnection, DEFAULT_NODE_ADDRESS } from '../utils/nodeConnection';
-import { ConsensusParticipationCard } from './ConsensusParticipationCard';
 import { BlockTimeTrendCard } from './BlockTimeTrendCard';
-import { PeerConnectivityTrendCard } from './PeerConnectivityTrendCard';
 import { MempoolDepthTrendCard } from './MempoolDepthTrendCard';
 
 type DashboardTab = 'overview' | 'health' | 'network';
@@ -21,7 +19,7 @@ export function Dashboard() {
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const { data } = useCometBFT({
     nodeUrl: nodeConnection.baseUrl,
-    refreshInterval: 5000,
+    refreshInterval: 2000,
     autoRefresh: true,
     consensusRefreshInterval: 1000,
     enableConsensusRealtime: true,
@@ -41,12 +39,12 @@ export function Dashboard() {
     {
       id: 'health',
       label: 'Health & consensus',
-      description: 'Live heartbeat, block production and participation metrics',
+      description: 'Live heartbeat and block production metrics',
     },
     {
       id: 'network',
       label: 'Network activity',
-      description: 'Peer connectivity, throughput and mempool insights',
+      description: 'Peer stats and mempool insights',
     },
   ];
 
@@ -116,21 +114,18 @@ export function Dashboard() {
             id="dashboard-panel-health"
             aria-labelledby="dashboard-tab-health"
           >
-            <div className="dashboard-section__header">
-              <h2 className="dashboard-section__title">Health &amp; consensus</h2>
-              <p className="dashboard-section__subtitle">
-                Live heartbeat, block production and participation metrics
-              </p>
-            </div>
+              <div className="dashboard-section__header">
+                <h2 className="dashboard-section__title">Health &amp; consensus</h2>
+                <p className="dashboard-section__subtitle">
+                  Live heartbeat and block production metrics
+                </p>
+              </div>
             <div className="dashboard-grid">
               <div className="dashboard-item">
                 <HealthAlertsCard data={data} />
               </div>
               <div className="dashboard-item">
                 <ConsensusStateCard data={data} />
-              </div>
-              <div className="dashboard-item">
-                <ConsensusParticipationCard data={data} />
               </div>
               <div className="dashboard-item">
                 <BlockTimeTrendCard data={data} />
@@ -146,21 +141,18 @@ export function Dashboard() {
             id="dashboard-panel-network"
             aria-labelledby="dashboard-tab-network"
           >
-            <div className="dashboard-section__header">
-              <h2 className="dashboard-section__title">Network activity</h2>
-              <p className="dashboard-section__subtitle">
-                Peer connectivity, throughput and mempool insights
-              </p>
-            </div>
+              <div className="dashboard-section__header">
+                <h2 className="dashboard-section__title">Network activity</h2>
+                <p className="dashboard-section__subtitle">
+                  Peer stats and mempool insights
+                </p>
+              </div>
             <div className="dashboard-grid">
               <div className="dashboard-item">
                 <NetworkInfoCard data={data} />
               </div>
               <div className="dashboard-item">
                 <MempoolCard data={data} />
-              </div>
-              <div className="dashboard-item">
-                <PeerConnectivityTrendCard data={data} />
               </div>
               <div className="dashboard-item">
                 <MempoolDepthTrendCard data={data} />

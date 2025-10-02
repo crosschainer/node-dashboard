@@ -60,17 +60,18 @@ export function MempoolDepthTrendCard({ data }: MempoolDepthTrendCardProps) {
       .filter((value): value is number => value !== null);
 
     const maxPending = validValues.length > 0 ? Math.max(...validValues) : 0;
+    const scalingMax = maxPending > 0 ? maxPending : 1;
 
     const step = samples.length > 1 ? CHART_WIDTH / (samples.length - 1) : CHART_WIDTH;
 
     const points = samples
       .map((sample, index) => {
         const pending = sample.pendingTxs;
-        if (pending === null || !Number.isFinite(pending) || maxPending === 0) {
+        if (pending === null || !Number.isFinite(pending) || pending < 0) {
           return null;
         }
 
-        const ratio = pending / maxPending;
+        const ratio = pending / scalingMax;
         return {
           x: index * step,
           y: CHART_HEIGHT - ratio * CHART_HEIGHT,
@@ -143,7 +144,7 @@ export function MempoolDepthTrendCard({ data }: MempoolDepthTrendCardProps) {
         label: formatCount(Math.round(value)),
       };
     })
-    : [];
+    : [{ y: CHART_HEIGHT, label: '0' }];
 
   return (
     <Card title="Mempool depth trend">
@@ -225,6 +226,12 @@ export function MempoolDepthTrendCard({ data }: MempoolDepthTrendCardProps) {
             </span>
           ))}
         </div>
+
+        {maxPending === 0 && samples.length > 0 && (
+          <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>
+            No pending transactions observed during the sampled window.
+          </p>
+        )}
 
         {labels.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>

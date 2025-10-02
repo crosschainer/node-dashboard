@@ -707,9 +707,7 @@ export class CometBFTService {
       loading: true,
       error: null,
       consensusState: null,
-      consensusHistory: [],
       blockTimeHistory: [],
-      peerCountHistory: [],
       mempoolDepthHistory: [],
     };
 
@@ -819,7 +817,6 @@ export class CometBFTService {
         },
         graphqlEnabled: null,
       };
-      data.consensusHistory = [];
     }
 
     return data;

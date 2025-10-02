@@ -269,27 +269,11 @@ export interface ConsensusHealth {
   issues: string[];
 }
 
-export interface ConsensusParticipationSample {
-  timestamp: string;
-  height: number | null;
-  round: number | null;
-  step: string | null;
-  prevoteRatio: number | null;
-  precommitRatio: number | null;
-}
-
 export interface BlockTimeSample {
   timestamp: string;
   blockHeight: number | null;
   blockTimestamp: string | null;
   blockIntervalMs: number | null;
-}
-
-export interface PeerCountSample {
-  timestamp: string;
-  totalPeers: number | null;
-  inboundPeers: number | null;
-  outboundPeers: number | null;
 }
 
 export interface MempoolDepthSample {
@@ -344,8 +328,6 @@ export interface DashboardData {
   health: NodeHealth;
   loading: boolean;
   error: string | null;
-  consensusHistory: ConsensusParticipationSample[];
   blockTimeHistory: BlockTimeSample[];
-  peerCountHistory: PeerCountSample[];
   mempoolDepthHistory: MempoolDepthSample[];
 }
