@@ -117,17 +117,6 @@ export interface ABCIInfoResponse {
   };
 }
 
-export interface UnconfirmedTxsResponse {
-  jsonrpc: string;
-  id: number;
-  result: {
-    n_txs: string;
-    total: string;
-    total_bytes: string;
-    txs: string[];
-  };
-}
-
 export interface ABCIQueryResponse {
   jsonrpc: string;
   id: number;
@@ -318,7 +307,6 @@ export interface DashboardData {
   netInfo: NetInfoResponse | null;
   abciInfo: ABCIInfoResponse | null;
   commit: CommitResponse | null;
-  mempool: UnconfirmedTxsResponse | null;
   consensusState: ConsensusStateResponse | null;
   health: NodeHealth;
   loading: boolean;
